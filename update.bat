@@ -62,6 +62,12 @@ pause
 exit /b 1
 
 :PUSH_OK
-echo Push done. Cloudflare Pages rebuilds automatically if changes were sent.
+echo.
+echo ==========================================================
+echo  Push succeeded. Cloudflare will rebuild automatically.
+echo  Site: https://iv-rank.caobynk.workers.dev/
+echo ==========================================================
+echo.
+pause
 
 endlocal
