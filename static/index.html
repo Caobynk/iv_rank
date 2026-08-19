@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品期权隐含波动率分位图</title>
+<style>
+  :root {
+    --bg-page: #f0f2f5;
+    --bg-card: #ffffff;
+    --bg-hover: #f8fafc;
+    --color-primary: #2563eb;
+    --color-primary-light: #dbeafe;
+    --color-primary-dark: #1d4ed8;
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --border-color: #e2e8f0;
+    --border-light: #f1f5f9;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --c-low: #10b981;
+    --c-mid-low: #84cc16;
+    --c-mid: #eab308;
+    --c-mid-high: #f97316;
+    --c-high: #ef4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    padding: 18px 32px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+  }
+  .header-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .header-title h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .header-title h1 .icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--color-primary), #7c3aed);
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .header-title .subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    margin-left: 42px;
+  }
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-page);
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+  }
+  .control-group label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .control-group input {
+    width: 70px;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-align: center;
+    outline: none;
+  }
+  .btn-refresh {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-refresh:hover {
+    background: var(--color-primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+  }
+  .btn-refresh:active { transform: translateY(0); }
+  .btn-refresh.loading { pointer-events: none; opacity: 0.7; }
+  .btn-refresh .spin {
+    display: none;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  .btn-refresh.loading .spin { display: inline-block; }
+  .btn-refresh.loading .refresh-icon { display: none; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== Stats Bar ===== */
+  .stats-bar {
+    max-width: 1400px;
+    margin: 20px auto 0;
+    padding: 0 32px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .stat-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 16px 20px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: transform 0.2s;
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .stat-icon {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .stat-icon.blue { background: #dbeafe; color: #2563eb; }
+  .stat-icon.green { background: #d1fae5; color: #059669; }
+  .stat-icon.red { background: #fee2e2; color: #dc2626; }
+  .stat-icon.purple { background: #ede9fe; color: #7c3aed; }
+  .stat-value { font-size: 22px; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+  .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ===== Scatter Card ===== */
+  .scatter-card {
+    max-width: 1400px;
+    margin: 16px auto 0;
+    padding: 0 32px;
+  }
+  .scatter-card-inner {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: 18px 24px 8px;
+    border: 1px solid var(--border-light);
+    transition: box-shadow 0.2s;
+  }
+  .scatter-card-inner:hover { box-shadow: var(--shadow-md); }
+  .scatter-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .scatter-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .scatter-title .tag {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-primary);
+    background: var(--color-primary-light);
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+  .scatter-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .scatter-chart {
+    width: 100%;
+    height: 340px;
+  }
+
+  /* ===== Legend ===== */
+  .legend-bar {
+    max-width: 1400px;
+    margin: 16px auto 0;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .legend-bar .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .legend-gradient {
+    flex: 1;
+    max-width: 300px;
+    height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(to right, var(--c-low), var(--c-mid-low), var(--c-mid), var(--c-mid-high), var(--c-high));
+  }
+  .legend-text {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* ===== Symbol List ===== */
+  .symbol-list {
+    max-width: 1400px;
+    margin: 16px auto 32px;
+    padding: 0 32px;
+  }
+  .symbol-row {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    margin-bottom: 8px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: box-shadow 0.2s, transform 0.2s;
+    border: 1px solid var(--border-light);
+  }
+  .symbol-row:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-color);
+  }
+  .symbol-row.expanded {
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-primary-light);
+  }
+  .symbol-main {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    cursor: pointer;
+    gap: 16px;
+    user-select: none;
+  }
+  .symbol-rank {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    background: var(--bg-page);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+  .symbol-row:nth-child(1) .symbol-rank { background: #fef3c7; color: #d97706; }
+  .symbol-row:nth-child(2) .symbol-rank { background: #f1f5f9; color: #475569; }
+  .symbol-row:nth-child(3) .symbol-rank { background: #fed7aa; color: #c2410c; }
+
+  .symbol-info {
+    width: 180px;
+    flex-shrink: 0;
+  }
+  .symbol-name {
+    font-size: 14px; font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .symbol-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 3px;
+  }
+  .exchange-tag {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: var(--bg-page);
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .symbol-count {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* Range Bar */
+  .range-container {
+    flex: 1;
+    min-width: 0;
+  }
+  .range-label {
+    position: absolute;
+    top: 1px;
+    z-index: 1;
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .range-bar {
+    flex: 1;
+    position: relative;
+    height: 32px;
+  }
+  .range-track {
+    position: absolute;
+    left: 0;
+    bottom: 4px;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right,
+      rgba(16,185,129,0.25),
+      rgba(132,204,22,0.25),
+      rgba(234,179,8,0.25),
+      rgba(249,115,22,0.25),
+      rgba(239,68,68,0.25));
+    border: 1px solid var(--border-color);
+  }
+  .range-segment {
+    position: absolute;
+    bottom: 4px;
+    height: 8px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    z-index: 1;
+  }
+  .range-marker {
+    position: absolute;
+    /* bottom=8px 使圆点中心(含 translateY(50%) 下移半高)对齐线段中心:
+       bar 高32 - 线段中心24 = 8 */
+    bottom: 8px;
+    transform: translate(-50%, 50%);
+    z-index: 2;
+    transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .marker-dot {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    transition: transform 0.2s;
+  }
+  .symbol-row:hover .marker-dot { transform: scale(1.15); }
+  .marker-label {
+    position: absolute;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text-primary);
+    color: white;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .symbol-row:hover .marker-label { opacity: 1; }
+
+  /* Right side values */
+  .symbol-values {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+  .value-block {
+    text-align: right;
+  }
+  .value-current {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+  .value-percentile {
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+  .value-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .expand-icon {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    transition: transform 0.3s;
+    flex-shrink: 0;
+  }
+  .symbol-row.expanded .expand-icon { transform: rotate(180deg); color: var(--color-primary); }
+
+  /* Detail Panel */
+  .detail-panel {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .detail-panel.open { max-height: 600px; }
+  .detail-content {
+    padding: 8px 20px 20px;
+    border-top: 1px solid var(--border-light);
+  }
+  .detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding-top: 8px;
+  }
+  .detail-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .detail-stats {
+    display: flex;
+    gap: 20px;
+    font-size: 12px;
+  }
+  .detail-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-secondary);
+  }
+  .detail-stat .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+  .chart-container {
+    width: 100%;
+    height: 360px;
+  }
+
+  /* Loading */
+  .loading-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.8);
+    backdrop-filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    gap: 16px;
+  }
+  .loading-overlay.hidden { display: none; }
+  .loading-spinner {
+    width: 48px; height: 48px;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .loading-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    top: 80px;
+    right: 32px;
+    background: var(--text-primary);
+    color: white;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    box-shadow: var(--shadow-lg);
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { background: #059669; }
+  .toast.error { background: #dc2626; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    .symbol-info { width: 130px; }
+    .header-inner { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingText">正在加载波动率数据...</div>
+</div>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <div class="header-title">
+      <h1>
+        <span class="icon">IV</span>
+        商品期权隐含波动率分位图
+      </h1>
+      <div class="subtitle" id="subtitle">加载中...</div>
+    </div>
+    <div class="header-controls">
+      <div class="control-group">
+        <label>回溯交易日</label>
+        <input type="number" id="daysInput" value="500" min="30" max="2000" step="10">
+        <span style="color:var(--text-muted);font-size:13px;">天</span>
+      </div>
+      <button class="btn-refresh" id="refreshBtn">
+        <span class="refresh-icon">↻</span>
+        <span class="spin"></span>
+        <span>更新数据</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Stats -->
+<div class="stats-bar" id="statsBar">
+  <div class="stat-card">
+    <div class="stat-icon blue">📊</div>
+    <div>
+      <div class="stat-value" id="statTotal">-</div>
+      <div class="stat-label">品种总数</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple">📅</div>
+    <div>
+      <div class="stat-value" id="statDate">-</div>
+      <div class="stat-label">最新数据日期</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon red">🔥</div>
+    <div>
+      <div class="stat-value" id="statHigh">-</div>
+      <div class="stat-label">高位品种 (分位>75%)</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green">💧</div>
+    <div>
+      <div class="stat-value" id="statLow">-</div>
+      <div class="stat-label">低位品种 (分位<25%)</div>
+    </div>
+  </div>
+</div>
+
+<!-- Scatter: IV vs Percentile -->
+<div class="scatter-card">
+  <div class="scatter-card-inner">
+    <div class="scatter-head">
+      <div class="scatter-title">波动率水平 vs 分位数分布 <span class="tag">点击散点定位品种</span></div>
+      <div class="scatter-sub">横轴：当前IV（波动率水平） · 纵轴：分位数</div>
+    </div>
+    <div class="scatter-chart" id="scatterChart"></div>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend-bar">
+  <span class="label">分位数色阶</span>
+  <div class="legend-gradient"></div>
+  <span class="legend-text">0% 低波动</span>
+  <span class="legend-text">50%</span>
+  <span class="legend-text">100% 高波动</span>
+</div>
+
+<!-- Symbol List -->
+<div class="symbol-list" id="symbolList"></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="/echarts.min.js"></script>
+<script>
+const API_BASE = '';
+const LOCAL_MODE = new URLSearchParams(location.search).has('local');
+let currentDays = 500;
+let overviewData = [];
+let activeChart = null;
+let activeCode = null;
+let scatterChart = null;
+
+// ===== Utility Functions =====
+function getPercentileColor(p) {
+  if (p <= 20) return '#10b981';
+  if (p <= 40) return '#84cc16';
+  if (p <= 60) return '#eab308';
+  if (p <= 80) return '#f97316';
+  return '#ef4444';
+}
+
+function getPercentileLabel(p) {
+  if (p <= 20) return '极低';
+  if (p <= 40) return '偏低';
+  if (p <= 60) return '中位';
+  if (p <= 80) return '偏高';
+  return '极高';
+}
+
+// hex 色转 rgba（用于线段半透明填充）
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// 全局刻度标签定位：端点贴近边界时贴边对齐，避免溢出
+function labelPosStyle(pos) {
+  if (pos < 6) return 'left:0;transform:none;text-align:left';
+  if (pos > 94) return 'left:100%;transform:translateX(-100%);text-align:right';
+  return `left:${pos}%;transform:translateX(-50%)`;
+}
+
+function showToast(msg, type) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast show ' + (type || '');
+  setTimeout(() => { toast.className = 'toast ' + (type || ''); }, 3000);
+}
+
+function showLoading(text) {
+  document.getElementById('loadingText').textContent = text || '加载中...';
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+// ===== Data Fetching =====
+async function fetchOverview(days) {
+  if (LOCAL_MODE) {
+    const resp = await fetch(`${API_BASE}/api/overview?days=${days}`);
+    if (!resp.ok) throw new Error('获取数据失败');
+    return resp.json();
+  }
+  const resp = await fetch('api/overview.json');
+  if (!resp.ok) throw new Error('获取数据失败');
+  return resp.json();
+}
+
+async function fetchDetail(code, days) {
+  if (LOCAL_MODE) {
+    const resp = await fetch(`${API_BASE}/api/detail?code=${encodeURIComponent(code)}&days=${days}`);
+    if (!resp.ok) throw new Error('获取详情失败');
+    return resp.json();
+  }
+  const resp = await fetch(`api/detail_${encodeURIComponent(code)}.json`);
+  if (!resp.ok) throw new Error('获取详情失败');
+  return resp.json();
+}
+
+async function fetchInfo() {
+  if (LOCAL_MODE) {
+    const resp = await fetch(`${API_BASE}/api/info`);
+    if (!resp.ok) return null;
+    return resp.json();
+  }
+  const resp = await fetch('api/info.json');
+  if (!resp.ok) return null;
+  return resp.json();
+}
+
+// ===== Rendering =====
+function renderStats(data) {
+  const total = data.length;
+  const high = data.filter(d => d.percentile > 75).length;
+  const low = data.filter(d => d.percentile < 25).length;
+  const latestDate = data.length > 0 ? data[0].current_date : '-';
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statDate').textContent = latestDate;
+  document.getElementById('statHigh').textContent = high;
+  document.getElementById('statLow').textContent = low;
+}
+
+// HTML 转义：所有来自数据源的字符串必须先转义再插入模板（防 XSS/属性逃逸）
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderSymbolRow(item, index, gmin, gmax) {
+  const color = getPercentileColor(item.percentile);
+  const rank = index + 1;
+  const shortName = escapeHTML(item.short_name || item.name);
+  const code = escapeHTML(item.code);
+  const exchange = escapeHTML(item.exchange);
+
+  // 全局统一刻度：所有品种共用 [gmin, gmax]，线段/标记均按此定位
+  const span = (gmax - gmin) || 1;
+  const clamp = v => Math.max(0, Math.min(100, v));
+  const posMin = clamp((item.min - gmin) / span * 100);
+  const posMax = clamp((item.max - gmin) / span * 100);
+  const posCur = clamp((item.current - gmin) / span * 100);
+  const segStyle = `left:${posMin}%;width:${Math.max(posMax - posMin, 0.3)}%`;
+  const minStyle = labelPosStyle(posMin);
+  const maxStyle = labelPosStyle(posMax);
+
+  return `
+    <div class="symbol-row" data-code="${code}" onclick="toggleDetail('${code}')">
+      <div class="symbol-main">
+        <div class="symbol-rank">${rank}</div>
+        <div class="symbol-info">
+          <div class="symbol-name" title="${shortName}">${shortName}</div>
+          <div class="symbol-meta">
+            <span class="exchange-tag">${exchange}</span>
+            <span class="symbol-count">${item.data_count}日</span>
+          </div>
+        </div>
+        <div class="range-container">
+          <div class="range-bar">
+            <div class="range-track"></div>
+            <div class="range-segment" style="${segStyle};background:${hexToRgba(color, 0.3)};border-color:${color};"></div>
+            <span class="range-label min" style="${minStyle}">${item.min.toFixed(1)}%</span>
+            <span class="range-label max" style="${maxStyle}">${item.max.toFixed(1)}%</span>
+            <div class="range-marker" style="left: ${posCur}%;">
+              <div class="marker-label">${item.current.toFixed(2)}%</div>
+              <div class="marker-dot" style="background: ${color};"></div>
+            </div>
+          </div>
+        </div>
+        <div class="symbol-values">
+          <div class="value-block">
+            <div class="value-current">${item.current.toFixed(2)}%</div>
+            <div class="value-label">当前IV</div>
+          </div>
+          <div class="value-block">
+            <div class="value-percentile" style="color: ${color};">${item.percentile.toFixed(0)}%</div>
+            <div class="value-label">${getPercentileLabel(item.percentile)}</div>
+          </div>
+        </div>
+        <div class="expand-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="detail-panel" id="detail-${code}">
+        <div class="detail-content">
+          <div class="detail-header">
+            <div class="detail-title">${shortName} · 隐含波动率走势</div>
+            <div class="detail-stats">
+              <div class="detail-stat"><span class="dot" style="background:#10b981"></span>最低 ${item.min.toFixed(2)}%</div>
+              <div class="detail-stat"><span class="dot" style="background:#64748b"></span>均值 ${item.avg.toFixed(2)}%</div>
+              <div class="detail-stat"><span class="dot" style="background:#ef4444"></span>最高 ${item.max.toFixed(2)}%</div>
+              <div class="detail-stat"><span class="dot" style="background:${getPercentileColor(item.percentile)}"></span>当前 ${item.current.toFixed(2)}% (${item.percentile.toFixed(1)}%)</div>
+            </div>
+          </div>
+          <div class="chart-container" id="chart-${code}"></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderList(data) {
+  const container = document.getElementById('symbolList');
+  // 全局统一刻度：取 min 的 P10 与 max 的 P90 分位，抗极端品种拉爆刻度；
+  // 超出刻度的品种线段自然贴边，标签仍显示真实值
+  const pct = (arr, p) => {
+    const s = [...arr].sort((a, b) => a - b);
+    return s[Math.min(s.length - 1, Math.max(0, Math.floor(s.length * p)))];
+  };
+  let gmin = pct(data.map(d => d.min), 0.1);
+  let gmax = pct(data.map(d => d.max), 0.9);
+  if (!isFinite(gmin) || !isFinite(gmax) || gmax - gmin < 1e-9) { gmin = 0; gmax = 1; }
+  container.innerHTML = data.map((item, i) => renderSymbolRow(item, i, gmin, gmax)).join('');
+}
+
+// ===== Scatter Chart: IV vs Percentile =====
+function renderScatter(data) {
+  const dom = document.getElementById('scatterChart');
+  if (!dom) return;
+  if (!scatterChart) {
+    scatterChart = echarts.init(dom);
+    const rh = () => { if (scatterChart && !scatterChart.isDisposed()) scatterChart.resize(); };
+    window.addEventListener('resize', rh);
+  }
+
+  const pts = data.map(d => ({
+    value: [d.current, d.percentile],
+    name: d.short_name || d.name,
+    code: d.code,
+    exchange: d.exchange,
+    current: d.current,
+    percentile: d.percentile,
+    min: d.min,
+    max: d.max
+  }));
+
+  scatterChart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: {
+      backgroundColor: 'rgba(30,41,59,0.95)',
+      borderColor: 'transparent',
+      padding: [8, 12],
+      textStyle: { color: '#fff', fontSize: 12 },
+      formatter: function(p) {
+        const d = p.data;
+        const c = getPercentileColor(d.percentile);
+        return `<div style="font-weight:700;font-size:13px;margin-bottom:4px">${escapeHTML(d.short_name || d.name)} <span style="font-size:11px;color:#94a3b8;font-weight:400;margin-left:4px">${escapeHTML(d.exchange)}</span></div>` +
+          `<div style="margin:2px 0">当前IV: <b style="color:${c}">${d.current.toFixed(2)}%</b></div>` +
+          `<div style="margin:2px 0">分位数: <b style="color:${c}">${d.percentile.toFixed(1)}%</b> <span style="color:#cbd5e1">(${getPercentileLabel(d.percentile)})</span></div>` +
+          `<div style="margin-top:2px;color:#94a3b8;font-size:11px">区间 ${d.min.toFixed(1)}% ~ ${d.max.toFixed(1)}%</div>`;
+      }
+    },
+    grid: { left: '3%', right: '4%', top: 20, bottom: 44, containLabel: true },
+    xAxis: {
+      type: 'value',
+      name: '当前IV',
+      nameLocation: 'middle',
+      nameGap: 30,
+      nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+      scale: true,
+      axisLine: { lineStyle: { color: '#e2e8f0' } },
+      axisTick: { show: false },
+      splitLine: { lineStyle: { color: '#f1f5f9' } },
+      axisLabel: { color: '#94a3b8', fontSize: 11, formatter: '{value}%' }
+    },
+    yAxis: {
+      type: 'value',
+      name: '分位数',
+      nameLocation: 'middle',
+      nameGap: 38,
+      nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+      min: 0,
+      max: 100,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
+      axisLabel: { color: '#94a3b8', fontSize: 11, formatter: '{value}%' }
+    },
+    visualMap: {
+      show: false,
+      min: 0,
+      max: 100,
+      dimension: 1,
+      inRange: { color: ['#10b981', '#84cc16', '#eab308', '#f97316', '#ef4444'] }
+    },
+    series: [{
+      type: 'scatter',
+      data: pts,
+      symbolSize: 13,
+      itemStyle: {
+        opacity: 0.88,
+        borderColor: '#fff',
+        borderWidth: 1.5,
+        shadowBlur: 6,
+        shadowColor: 'rgba(0,0,0,0.18)'
+      },
+      emphasis: {
+        scale: 1.45,
+        itemStyle: {
+          borderColor: '#fff',
+          borderWidth: 2,
+          shadowBlur: 12,
+          shadowColor: 'rgba(0,0,0,0.28)'
+        }
+      },
+      markLine: {
+        symbol: 'none',
+        silent: true,
+        data: [
+          { yAxis: 25, lineStyle: { color: '#10b981', type: 'dashed', width: 1, opacity: 0.45 }, label: { formatter: '25%', color: '#10b981', fontSize: 10, position: 'insideStartTop' } },
+          { yAxis: 50, lineStyle: { color: '#94a3b8', type: 'dashed', width: 1, opacity: 0.4 }, label: { formatter: '中位 50%', color: '#94a3b8', fontSize: 10, position: 'insideStartTop' } },
+          { yAxis: 75, lineStyle: { color: '#ef4444', type: 'dashed', width: 1, opacity: 0.45 }, label: { formatter: '75%', color: '#ef4444', fontSize: 10, position: 'insideStartTop' } }
+        ]
+      }
+    }]
+  }, true);
+
+  // 点击散点 → 滚动并高亮对应品种行
+  scatterChart.off('click');
+  scatterChart.on('click', function(params) {
+    if (params.data && params.data.code) {
+      const row = document.querySelector(`.symbol-row[data-code="${params.data.code}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const orig = row.style.boxShadow;
+        row.style.transition = 'box-shadow 0.4s';
+        row.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.4), 0 8px 24px rgba(0,0,0,0.12)';
+        setTimeout(() => { row.style.boxShadow = orig; }, 1600);
+      }
+    }
+  });
+}
+
+// ===== Expand/Collapse Detail =====
+function disposeActiveChart() {
+  if (activeChart) {
+    // Remove resize listener
+    const container = activeChart.getDom();
+    if (container && container._resizeHandler) {
+      window.removeEventListener('resize', container._resizeHandler);
+      container._resizeHandler = null;
+    }
+    activeChart.dispose();
+    activeChart = null;
+  }
+}
+
+async function toggleDetail(code) {
+  const row = document.querySelector(`.symbol-row[data-code="${code}"]`);
+  const panel = document.getElementById(`detail-${code}`);
+
+  if (!row || !panel) return;
+
+  // If expanding
+  if (!panel.classList.contains('open')) {
+    // Close any open panel first
+    if (activeCode && activeCode !== code) {
+      const prevPanel = document.getElementById(`detail-${activeCode}`);
+      const prevRow = document.querySelector(`.symbol-row[data-code="${activeCode}"]`);
+      if (prevPanel) prevPanel.classList.remove('open');
+      if (prevRow) prevRow.classList.remove('expanded');
+      disposeActiveChart();
+    }
+
+    // Open this one
+    row.classList.add('expanded');
+    panel.classList.add('open');
+    activeCode = code;
+
+    // Load chart after panel expands
+    setTimeout(async () => {
+      await loadChart(code);
+    }, 200);
+  } else {
+    // Close this one
+    row.classList.remove('expanded');
+    panel.classList.remove('open');
+    disposeActiveChart();
+    activeCode = null;
+  }
+}
+
+async function loadChart(code) {
+  const chartDiv = document.getElementById(`chart-${code}`);
+  if (!chartDiv) return;
+
+  // Show loading in chart area
+  chartDiv.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">加载走势数据...</div>';
+
+  try {
+    const detail = await fetchDetail(code, currentDays);
+    if (!detail || detail.error) {
+      chartDiv.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">暂无数据</div>';
+      return;
+    }
+
+    chartDiv.innerHTML = '';
+    const chart = echarts.init(chartDiv);
+    activeChart = chart;
+
+    const color = getPercentileColor(detail.percentile);
+
+    const option = {
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(30,41,59,0.95)',
+        borderColor: 'rgba(30,41,59,0.95)',
+        textStyle: { color: '#fff', fontSize: 12 },
+        formatter: function(params) {
+          const p = params[0];
+          return `<div style="font-size:12px">${p.axisValue}</div><div style="margin-top:4px;font-weight:600;color:${color}">IV: ${p.value.toFixed(2)}%</div>`;
+        }
+      },
+      grid: {
+        left: '3%',
+        right: '3%',
+        bottom: '18%',
+        top: '8%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: detail.dates,
+        boundaryGap: false,
+        axisLine: { lineStyle: { color: '#e2e8f0' } },
+        axisLabel: {
+          color: '#94a3b8',
+          fontSize: 11,
+          // 每年第一个出现的时间点带年份（如 17-03-31），其余只显示 MM-DD，避免冗余
+          formatter: (function() {
+            let lastYear = null;
+            return function(val) {
+              const y = val.substring(2, 4);
+              if (y !== lastYear) {
+                lastYear = y;
+                return `${y}-${val.substring(5)}`;
+              }
+              return val.substring(5);
+            };
+          })()
+        },
+        axisTick: { show: false }
+      },
+      yAxis: {
+        type: 'value',
+        scale: true,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
+        axisLabel: {
+          color: '#94a3b8',
+          fontSize: 11,
+          formatter: '{value}%'
+        }
+      },
+      dataZoom: [
+        {
+          type: 'inside',
+          start: 0,
+          end: 100
+        },
+        {
+          type: 'slider',
+          start: 0,
+          end: 100,
+          height: 24,
+          bottom: 8,
+          borderColor: '#e2e8f0',
+          fillerColor: 'rgba(37,99,235,0.1)',
+          handleStyle: { color: '#2563eb', borderColor: '#2563eb' },
+          moveHandleStyle: { color: '#2563eb' },
+          textStyle: { color: '#94a3b8', fontSize: 10 },
+          dataBackground: {
+            lineStyle: { color: '#cbd5e1' },
+            areaStyle: { color: 'rgba(203,213,225,0.3)' }
+          },
+          selectedDataBackground: {
+            lineStyle: { color: '#2563eb' },
+            areaStyle: { color: 'rgba(37,99,235,0.2)' }
+          }
+        }
+      ],
+      series: [{
+        name: 'IV',
+        type: 'line',
+        data: detail.values,
+        smooth: 0.3,
+        symbol: 'none',
+        sampling: 'lttb',
+        lineStyle: { width: 2, color: color },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: color + '40' },
+            { offset: 1, color: color + '05' }
+          ])
+        },
+        markLine: {
+          symbol: 'none',
+          precision: 2,
+          data: [
+            {
+              yAxis: detail.min,
+              lineStyle: { color: '#10b981', type: 'dashed', width: 1 },
+              label: { formatter: '最低 {c}%', color: '#10b981', fontSize: 10, position: 'insideStartTop' }
+            },
+            {
+              yAxis: detail.avg,
+              lineStyle: { color: '#64748b', type: 'dashed', width: 1 },
+              label: { formatter: '均值 {c}%', color: '#64748b', fontSize: 10, position: 'insideStartTop' }
+            },
+            {
+              yAxis: detail.max,
+              lineStyle: { color: '#ef4444', type: 'dashed', width: 1 },
+              label: { formatter: '最高 {c}%', color: '#ef4444', fontSize: 10, position: 'insideStartTop' }
+            }
+          ]
+        },
+        markPoint: {
+          symbol: 'circle',
+          symbolSize: 8,
+          data: [
+            {
+              type: 'max',
+              name: '最高',
+              itemStyle: { color: '#ef4444' },
+              label: { show: false }
+            },
+            {
+              type: 'min',
+              name: '最低',
+              itemStyle: { color: '#10b981' },
+              label: { show: false }
+            }
+          ]
+        }
+      }]
+    };
+
+    chart.setOption(option);
+
+    // Resize handler
+    const resizeHandler = () => { if (chart && !chart.isDisposed()) chart.resize(); };
+    chartDiv._resizeHandler = resizeHandler;
+    window.addEventListener('resize', resizeHandler);
+
+  } catch (e) {
+    console.error('Chart error:', e);
+    chartDiv.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ef4444;">数据加载失败</div>';
+  }
+}
+
+// ===== Main Load =====
+async function loadData(days) {
+  currentDays = days;
+  showLoading('正在加载波动率数据...');
+
+  // Close any open detail
+  disposeActiveChart();
+  activeCode = null;
+
+  try {
+    const [overview, info] = await Promise.all([fetchOverview(days), fetchInfo()]);
+    overviewData = overview.data || [];
+    renderStats(overviewData);
+    renderScatter(overviewData);
+    renderList(overviewData);
+
+    if (info) {
+      document.getElementById('subtitle').textContent =
+        `共 ${info.symbol_count} 个品种 · 数据更新至 ${info.latest_date || '-'}`;
+    }
+  } catch (e) {
+    console.error(e);
+    showToast('数据加载失败: ' + e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+// ===== Refresh =====
+async function refreshData() {
+  if (!LOCAL_MODE) {
+    showToast('线上为静态快照，更新需重新构建部署', 'info');
+    return;
+  }
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('loading');
+
+  // Close any open detail
+  disposeActiveChart();
+  activeCode = null;
+
+  try {
+    const resp = await fetch(`${API_BASE}/api/refresh?days=${currentDays}`);
+    const result = await resp.json();
+    overviewData = result.data || [];
+    renderStats(overviewData);
+    renderScatter(overviewData);
+    renderList(overviewData);
+
+    const info = await fetchInfo();
+    if (info) {
+      document.getElementById('subtitle').textContent =
+        `共 ${info.symbol_count} 个品种 · 数据更新至 ${info.latest_date || '-'}`;
+    }
+
+    showToast('数据已更新', 'success');
+  } catch (e) {
+    console.error(e);
+    showToast('更新失败: ' + e.message, 'error');
+  } finally {
+    btn.classList.remove('loading');
+  }
+}
+
+// ===== Event Listeners =====
+document.getElementById('refreshBtn').addEventListener('click', refreshData);
+
+let daysTimer = null;
+document.getElementById('daysInput').addEventListener('input', function(e) {
+  const val = parseInt(e.target.value);
+  if (isNaN(val) || val < 30) return;
+  clearTimeout(daysTimer);
+  daysTimer = setTimeout(() => {
+    if (val >= 30 && val <= 2000) {
+      loadData(val);
+    }
+  }, 600);
+});
+
+document.getElementById('daysInput').addEventListener('blur', function(e) {
+  const val = parseInt(e.target.value);
+  if (isNaN(val) || val < 30) {
+    e.target.value = currentDays;
+  } else if (val > 2000) {
+    e.target.value = 2000;
+    loadData(2000);
+  }
+});
+
+// ===== Heartbeat: 网页关闭后自动释放端口 =====
+function sendHeartbeat() {
+  if (!LOCAL_MODE) return;
+  fetch(`${API_BASE}/api/heartbeat`, { method: 'GET' }).catch(() => {});
+}
+
+// 页面可见时立即发一次心跳，然后定期发送
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) sendHeartbeat();
+});
+
+// 每5秒发送心跳，保持服务器活跃
+setInterval(sendHeartbeat, 5000);
+// 页面加载后立即发送
+sendHeartbeat();
+
+// 页面关闭时通知服务器关闭（被汇总面板 Hub 以 ?embed=1 嵌入时，生命周期由 Hub 统一纳管，不自行关闭）
+const _embedded = new URLSearchParams(location.search).has('embed');
+if (!_embedded) {
+  window.addEventListener('beforeunload', () => {
+    fetch(`${API_BASE}/api/shutdown`, { method: 'GET', keepalive: true }).catch(() => {});
+  });
+}
+
+// 静态部署（非本地模式）下禁用 days 自由输入：线上为固定 500 天快照
+if (!LOCAL_MODE) {
+  const _di = document.getElementById('daysInput');
+  if (_di) _di.disabled = true;
+}
+
+// ===== Init =====
+loadData(500);
+</script>
+</body>
+</html>

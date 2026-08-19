@@ -1,0 +1,17 @@
+# Python / venv
+venv/
+__pycache__/
+*.pyc
+
+# Runtime artifacts
+server_port.txt
+*.log
+_bat_check.log
+panel_launch.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project local memory (not for repo)
+.workbuddy/
