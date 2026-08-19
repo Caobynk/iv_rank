@@ -24,37 +24,44 @@ if errorlevel 1 (
 )
 
 REM step 4: push local commits to origin
-REM also pushes commits committed earlier but failed to push (no false "deploy" message)
+REM priority: system network (global proxy) first, then proxy file fallback
+REM also pushes commits committed earlier but failed to push (no false deploy message)
 set TOKEN=
 if exist deploy_token.txt (
   set /p TOKEN=<deploy_token.txt
 ) else (
   if defined GH_TOKEN set TOKEN=%GH_TOKEN%
 )
+
+echo Pushing to GitHub via system network...
+if not "%TOKEN%"=="" (
+  git -c "url.https://%TOKEN%@github.com/.insteadOf=https://github.com/" push origin main
+) else (
+  git push origin main
+)
+if not errorlevel 1 goto PUSH_OK
+
+echo System push failed, trying proxy fallback...
 set PROXY=
 if exist deploy_proxy.txt (
   set /p PROXY=<deploy_proxy.txt
 ) else (
   if defined GH_PROXY set PROXY=%GH_PROXY%
 )
-if not "%TOKEN%"=="" (
-  if not "%PROXY%"=="" (
+if not "%PROXY%"=="" (
+  if not "%TOKEN%"=="" (
     git -c http.proxy=%PROXY% -c "url.https://%TOKEN%@github.com/.insteadOf=https://github.com/" push origin main
   ) else (
-    git -c "url.https://%TOKEN%@github.com/.insteadOf=https://github.com/" push origin main
-  )
-) else (
-  if not "%PROXY%"=="" (
     git -c http.proxy=%PROXY% push origin main
-  ) else (
-    git push origin main
   )
+  if not errorlevel 1 goto PUSH_OK
 )
-if errorlevel 1 (
-  echo [ERROR] push failed - site NOT updated. Check deploy_token.txt / GH_TOKEN or network.
-  pause
-  exit /b 1
-)
+
+echo [ERROR] push failed - site NOT updated. Check deploy_token.txt / GH_TOKEN or network.
+pause
+exit /b 1
+
+:PUSH_OK
 echo Push done. Cloudflare Pages rebuilds automatically if changes were sent.
 
 endlocal
