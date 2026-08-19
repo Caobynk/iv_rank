@@ -15,3 +15,6 @@ Thumbs.db
 
 # Project local memory (not for repo)
 .workbuddy/
+
+# Local deploy token (contains PAT, never commit)
+deploy_token.txt
