@@ -64,19 +64,28 @@ def run_step(name, date, timeout=900):
     cmd = [cfg['venv'], '-u', script, date]
     print(f'\n{"="*56}\n▶ [{name}] {cfg["script"]}\n{"="*56}', flush=True)
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env,
-                           cwd=BASE_DIR, encoding='utf-8', errors='replace')
-        out = (r.stdout or '').strip()
-        err = (r.stderr or '').strip()
-        if out:
-            print('\n'.join(out.splitlines()[-20:]))
-        if r.returncode != 0:
-            print(f'[ERROR] {name} 退出码 {r.returncode}')
-            if err:
-                print('\n'.join(err.splitlines()[-10:]))
+        # 实时流式输出：逐行转发子进程 stdout/stderr，避免长时间无反馈
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                             env=env, cwd=BASE_DIR, encoding='utf-8', errors='replace',
+                             bufsize=1, text=True)
+        lines = []
+        while True:
+            line = p.stdout.readline()
+            if not line:
+                break
+            line = line.rstrip('\n')
+            lines.append(line)
+            print(f'  {line}', flush=True)
+        p.wait(timeout=timeout)
+        if p.returncode != 0:
+            print(f'[ERROR] {name} 退出码 {p.returncode}')
             return False
         return True
     except subprocess.TimeoutExpired:
+        try:
+            p.kill()
+        except Exception:
+            pass
         print(f'[ERROR] {name} 超时（>{timeout}s）')
         return False
     except FileNotFoundError as e:
