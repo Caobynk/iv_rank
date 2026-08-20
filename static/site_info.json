@@ -1,0 +1,34 @@
+{
+  "build_time": "2026-08-20 20:07:32",
+  "latest_trade_date": "20260818",
+  "sub_pages": {
+    "overview": {
+      "name": "期权市场总览",
+      "latest": "20260818"
+    },
+    "oi_dist": {
+      "name": "期权行情信息",
+      "latest": "20260818"
+    },
+    "vol_hist": {
+      "name": "历史波动率估计",
+      "latest": "cache mtime"
+    },
+    "iv_rank": {
+      "name": "隐含波动率分析",
+      "latest": "api/info.json"
+    },
+    "pcr": {
+      "name": "商品期权PCR跟踪",
+      "latest": "tables"
+    },
+    "gex": {
+      "name": "商品期权GEX分析",
+      "latest": "20260818"
+    },
+    "corr": {
+      "name": "商品行情与波动率相关性",
+      "latest": "Corr.xlsx"
+    }
+  }
+}

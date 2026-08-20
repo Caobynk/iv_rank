@@ -1,13 +1,13 @@
 # Python / venv
 venv/
+.venv/
 __pycache__/
 *.pyc
 
 # Runtime artifacts
-server_port.txt
 *.log
-_bat_check.log
-panel_launch.log
+server_port.txt
+hub_port.txt
 
 # OS
 .DS_Store

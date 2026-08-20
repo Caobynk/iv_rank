@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>商品行情 × 隐含波动率 · 相关性分析</title>
+<script src="./libs/echarts.min.js"></script>
+<script src="./libs/xlsx.full.min.js"></script>
+<script src="./compute.js"></script>
+<script src="./names.js"></script>
+<link rel="stylesheet" href="./common.css" />
+<style>
+  /* 页面特有样式（共享基础样式见 common.css） */
+  .header-title h1 .icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--color-primary), #7c3aed);
+    border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+    color: white; font-size: 18px; font-weight: 700; flex-shrink: 0;
+  }
+  .stat-icon.purple { background: #ede9fe; }
+  .stat-icon.red { background: #fee2e2; }
+  .stat-icon.green { background: #d1fae5; }
+  select {
+    padding: 7px 9px; border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+    background: #fff; color: var(--text-primary); font-size: 13px; min-width: 150px; cursor: pointer;
+  }
+  .chk { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-primary); white-space: nowrap; }
+  .scatter-chart { width: 100%; height: 660px; }
+  #secondary { height: 420px; }
+  .legend-bar {
+    max-width: 1440px; margin: 16px auto 0; padding: 0 32px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .legend-gradient {
+    flex: 1; max-width: 360px; height: 10px; border-radius: 5px;
+    background: linear-gradient(to right, var(--c-low), var(--c-mid-low), var(--c-mid), var(--c-mid-high), var(--c-high));
+  }
+  .legend-text { font-size: 11px; color: var(--text-muted); }
+  .legend-inline { display: flex; gap: 16px; align-items: center; font-size: 11px; color: var(--text-muted); }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; margin: 0 5px; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingText">正在加载 Corr.xlsx ...</div>
+</div>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="header-title">
+      <h1>
+        <span class="icon">&#961;</span>
+        商品行情 × 隐含波动率 · 相关性分析
+      </h1>
+      <div class="subtitle" id="subtitle">加载中...</div>
+    </div>
+  </div>
+  <nav class="topnav">
+    <a href="index.html" class="active">相关性气泡图</a>
+    <a href="trend.html">价格 · 波动率走势</a>
+  </nav>
+</header>
+
+<!-- Stats -->
+<div class="stats-bar" id="statsBar">
+  <div class="stat-card">
+    <div class="stat-icon blue">&#128202;</div>
+    <div><div class="stat-value" id="statTotal">-</div><div class="stat-label">品种总数</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple">&#128197;</div>
+    <div><div class="stat-value" id="statDate">-</div><div class="stat-label">最新交易日</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon red">&#128260;</div>
+    <div><div class="stat-value" id="statPos">-</div><div class="stat-label">显著正相关 (|&#961;|&#8805;阈值)</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green">&#128256;</div>
+    <div><div class="stat-value" id="statNeg">-</div><div class="stat-label">显著负相关 (|&#961;|&#8805;阈值)</div></div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar-card">
+  <div class="field">
+    <label>交易日</label>
+    <select id="dateSelect"></select>
+  </div>
+  <div class="field">
+    <label>滚动窗口（交易日）</label>
+    <select id="windowSelect">
+      <option value="10">10</option>
+      <option value="20" selected>20</option>
+      <option value="30">30</option>
+      <option value="40">40</option>
+      <option value="60">60</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>IV 变化方式</label>
+    <select id="ivModeSelect">
+      <option value="pct" selected>涨跌幅 (%)</option>
+      <option value="abs">绝对变化 (点数)</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>显著性阈值 |&#961;| &#8805; <span id="thrVal">0.50</span></label>
+    <input type="range" id="thrRange" min="0" max="1" step="0.05" value="0.5" />
+  </div>
+  <div class="field">
+    <label>&nbsp;</label>
+    <label class="chk"><input type="checkbox" id="showAll" /> 显示全部品种（忽略阈值）</label>
+  </div>
+  <div class="field">
+    <label>&nbsp;</label>
+    <div class="row">
+      <button class="btn" id="exportBtn">导出气泡图 PNG</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bubble Chart -->
+<div class="scatter-card">
+  <div class="scatter-card-inner">
+    <div class="scatter-head">
+      <div class="scatter-title">相关性气泡图 <span class="tag">价格-波动率联动</span></div>
+      <div class="scatter-sub" id="bubbleDate"></div>
+    </div>
+    <div id="bubble" class="scatter-chart"></div>
+  </div>
+</div>
+
+<!-- Secondary Scatter -->
+<div class="scatter-card">
+  <div class="scatter-card-inner">
+    <div class="scatter-head">
+      <div class="scatter-title">近窗口期 价格-波动率散点</div>
+      <div class="scatter-sub" id="secSub">点击上方气泡，查看该品种近窗口期每日「价格涨跌幅 × IV 变化」散点</div>
+    </div>
+    <div id="secondary" class="scatter-chart"></div>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend-bar">
+  <span class="label">IV 色阶</span>
+  <div class="legend-gradient"></div>
+  <span class="legend-text">低波动</span>
+  <span class="legend-text">高波动</span>
+  <span class="legend-inline">
+    <span><span class="swatch" style="background:#2563eb"></span>价格&#8593;波动率&#8593; 正相关</span>
+    <span><span class="swatch" style="background:#ef4444"></span>价格&#8593;波动率&#8595; 负相关</span>
+  </span>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<footer>数据来源：本地 Corr.xlsx（价格指数 / IV数据 两个工作表）· 计算与绘图均在浏览器本地完成 · 通过 start.bat 启动本地服务后自动加载</footer>
+
+<script>
+(function(){
+  "use strict";
+  // 品种中文名（CN / displayName）来自共享的 names.js（全局），此处不再重复定义
+
+  // 气泡尺寸与 IV 区间的命名常量（替代魔法数字）
+  var MIN_SYM_SIZE = 12, MAX_SYM_SIZE = 30, SYM_SCALE = 18;
+  var IV_RANGE_EPS = 1e-6, IV_RANGE_FLOOR = 0.01;
+  // IV 色阶停靠点：低→高 = 绿→黄绿→黄→橙→红（对齐 IV_Rank 绘图风格）
+  var IV_STOPS = [[16,185,129],[132,204,22],[234,179,8],[249,115,22],[239,68,68]];
+
+  var state = { model:null, date:null, threshold:0.5, showAll:false, window:20, ivMode:"pct", rawBuffer:null };
+  var bubbleChart, secChart, heartbeatTimer = null;
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  function showToast(msg, type){
+    var t = $("toast"); t.textContent = msg;
+    t.className = "toast show " + (type || "");
+    setTimeout(function(){ t.className = "toast " + (type || ""); }, 3600);
+  }
+  function showLoading(text){
+    $("loadingText").textContent = text || "加载中...";
+    $("loadingOverlay").classList.remove("hidden");
+  }
+  function hideLoading(){ $("loadingOverlay").classList.add("hidden"); }
+
+  // ---- 自动加载数据：fetch 本地 Corr.xlsx（需经 start.bat 启动的本地服务）----
+  function loadData(){
+    showLoading("正在加载 Corr.xlsx ...");
+    fetch("./Corr.xlsx")
+      .then(function(r){
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return r.arrayBuffer();
+      })
+      .then(function(buf){
+        var u = new Uint8Array(buf);
+        state.rawBuffer = u;
+        state.model = CorrAnalyzer.parseFile(u, { window:state.window, ivMode:state.ivMode });
+        state.date = state.model.maxDate;
+        $("subtitle").textContent = "共 " + state.model.products.length + " 个品种 · 数据区间 " +
+          state.model.minDate + " ~ " + state.model.maxDate;
+        hideLoading();
+        populateDates();
+        renderAll();
+        startHeartbeat();
+      })
+      .catch(function(err){
+        console.error(err);
+        hideLoading();
+        showToast("数据加载失败：" + err.message + "（请用项目目录下的 start.bat 启动本地服务后访问）", "error");
+        $("subtitle").textContent = "加载失败，请用项目目录下的 start.bat 启动本地服务";
+      });
+  }
+
+  function populateDates(){
+    var sel = $("dateSelect"); sel.innerHTML = "";
+    state.model.dates.forEach(function(d){
+      var o = document.createElement("option"); o.value = d; o.textContent = d; sel.appendChild(o);
+    });
+    sel.value = state.date;
+  }
+
+  // ---- 筛选当前日期的品种 ----
+  function currentEntries(){
+    var all = state.model.corrByDate[state.date] || [];
+    var list = all.filter(function(x){
+      return state.showAll ? true : x.absCorr >= state.threshold;
+    });
+    list.sort(function(a,b){ return a.corr - b.corr; });
+    return list;
+  }
+
+  // IV 色阶：低→高 = 绿→黄绿→黄→橙→红（对齐 IV_Rank 绘图风格）
+  function makeIvColor(ivMin, ivMax){
+    var ivRange = (ivMax - ivMin) || 0.01;
+    var stops = IV_STOPS;
+    return function(iv){
+      var t = Math.max(0, Math.min(1, (iv - ivMin) / ivRange));
+      var seg = t * (stops.length - 1);
+      var i = Math.min(stops.length - 2, Math.floor(seg));
+      var f = seg - i;
+      var c0 = stops[i], c1 = stops[i+1];
+      var r = Math.round(c0[0] + (c1[0]-c0[0]) * f);
+      var g = Math.round(c0[1] + (c1[1]-c0[1]) * f);
+      var b = Math.round(c0[2] + (c1[2]-c0[2]) * f);
+      return "rgba(" + r + "," + g + "," + b + ",0.9)";
+    };
+  }
+
+  // 最小二乘线性回归（近窗口期散点趋势线）：返回 { slope, intercept }
+  function linearFit(xs, ys) {
+    var n = xs.length;
+    if (!n) return { slope: 0, intercept: 0 };
+    var mx = 0, my = 0, i;
+    for (i = 0; i < n; i++) { mx += xs[i]; my += ys[i]; }
+    mx /= n; my /= n;
+    var cov = 0, sx = 0, sy = 0;
+    for (i = 0; i < n; i++) {
+      var dx = xs[i] - mx, dy = ys[i] - my;
+      cov += dx * dy; sx += dx * dx; sy += dy * dy;
+    }
+    var slope = sx ? cov / sx : 0;
+    return { slope: slope, intercept: my - slope * mx };
+  }
+
+  function renderBubble(){
+    var entries = currentEntries();
+    var yNames = entries.map(function(x){ return displayName(x.base); });
+    var data = entries.map(function(x){
+      return {
+        value:[x.corr, displayName(x.base), x.absCorr, x.iv],
+        base:x.base, priceCode:x.priceCode, ivCode:x.ivCode,
+        corr:x.corr, absCorr:x.absCorr, iv:x.iv, dateIndex:x.dateIndex, product:x.product
+      };
+    });
+    var ivs = entries.map(function(x){ return x.iv; });
+    var ivMin = ivs.length ? Math.min.apply(null, ivs) : 0;
+    var ivMax = ivs.length ? Math.max.apply(null, ivs) : 1;
+    if(ivMax - ivMin < IV_RANGE_EPS){ ivMax = ivMin + IV_RANGE_FLOOR; }
+    var ivColor = makeIvColor(ivMin, ivMax);
+
+    var lo = state.showAll ? 0 : state.threshold;
+    function symSize(val){
+      var a = val[2];
+      var s = MIN_SYM_SIZE + (Math.max(0, a - lo) / ((1 - lo) || 1)) * SYM_SCALE;
+      return Math.max(MIN_SYM_SIZE, Math.min(MAX_SYM_SIZE, s));
+    }
+
+    var option = {
+      backgroundColor: "transparent",
+      grid: { left: 128, right: 30, top: 20, bottom: 50 },
+      tooltip: {
+        trigger: "item",
+        backgroundColor: "rgba(30,41,59,0.95)", borderColor: "transparent",
+        padding: [10, 14], textStyle: { color: "#fff", fontSize: 12 },
+        extraCssText: "border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.2);",
+        formatter: function(p){
+          var d = p.data;
+          var sign = d.corr >= 0
+            ? '<span style="color:#60a5fa">正相关 ▲</span>'
+            : '<span style="color:#f87171">负相关 ▼</span>';
+          return '<b>' + d.base + '</b> ' + (CN[d.base] || '') + '<br/>' +
+            '相关性 ρ = <b>' + d.corr.toFixed(3) + '</b> ' + sign + '<br/>' +
+            '|ρ| = ' + d.absCorr.toFixed(3) + ' &nbsp; IV = ' + (d.iv * 100).toFixed(2) + '%';
+        }
+      },
+      xAxis: {
+        type: "value", name: "← 价格-波动率相关性 →", min: -1, max: 1,
+        nameLocation: "center", nameGap: 34, nameTextStyle: { fontSize: 12, color: "#94a3b8", fontWeight: 500 },
+        splitLine: { lineStyle: { color: "#f1f5f9" } },
+        axisLine: { lineStyle: { color: "#e2e8f0" } },
+        axisLabel: { color: "#94a3b8", fontSize: 11, formatter: function(v){ return v.toFixed(1); } },
+        axisTick: { show: false }
+      },
+      yAxis: {
+        type: "category", data: yNames,
+        axisLabel: {
+          color: "#475569", fontSize: 11.5, interval: 0, margin: 10,
+          formatter: function(v){ var parts = v.split(' '); return parts.length > 1 ? parts[0] + parts[1] : v; }
+        },
+        axisLine: { lineStyle: { color: "#e2e8f0" } },
+        axisTick: { show: false },
+        splitLine: { show: true, lineStyle: { color: "#f1f5f9", type: "dashed" } }
+      },
+      series: [{
+        type: "scatter", data: data,
+        symbolSize: function(val){ return symSize(val); },
+        itemStyle: {
+          borderColor: "#fff", borderWidth: 1.5, opacity: 0.88,
+          shadowBlur: 6, shadowColor: "rgba(0,0,0,0.18)",
+          color: function(p){ return ivColor(p.value[3]); }
+        },
+        emphasis: {
+          scale: 1.45,
+          itemStyle: { borderColor: "#1e293b", borderWidth: 2, shadowBlur: 12, shadowColor: "rgba(0,0,0,0.28)" },
+          label: { show: true, position: "top", fontSize: 11.5, fontWeight: 700, color: "#1e293b", distance: 6,
+            formatter: function(p){ return p.data.base; } }
+        },
+        markLine: { silent: true, symbol: "none", lineStyle: { color: "#cbd5e1", type: "dashed", width: 1.5 }, label: { show: false }, data: [{ xAxis: 0 }] },
+        markArea: {
+          silent: true,
+          itemStyle: { color: "rgba(37,99,235,0.04)" },
+          data: [[{ xAxis: "min" }, { xAxis: 0 }], [{ xAxis: 0 }, { xAxis: "max", itemStyle: { color: "rgba(239,68,68,0.04)" } }]]
+        }
+      }],
+      dataZoom: [
+        { type: "slider", yAxisIndex: 0, width: 10, right: 8, top: 20, bottom: 50,
+          brushSelect: false, backgroundColor: "#f1f5f9", borderColor: "#e2e8f0",
+          fillerColor: "rgba(37,99,235,0.10)", handleSize: "80%",
+          handleStyle: { color: "#2563eb", borderColor: "#2563eb" },
+          textStyle: { color: "#94a3b8", fontSize: 9 }, showDetail: false },
+        { type: "inside", yAxisIndex: 0 }
+      ]
+    };
+    bubbleChart.setOption(option, true);
+    $("bubbleDate").textContent = "（" + state.date + " · 近 " + state.window + " 交易日 · 显示 " + entries.length + " 个品种）";
+    renderStats(entries);
+  }
+
+  function renderStats(entries){
+    var pos = entries.filter(function(x){ return x.corr >= 0; }).length;
+    var neg = entries.length - pos;
+    $("statTotal").textContent = state.model.products.length;
+    $("statDate").textContent = state.date || "-";
+    $("statPos").textContent = pos;
+    $("statNeg").textContent = neg;
+  }
+
+  // ---- 次级散点：该品种近窗口期 价格变化 × IV变化 ----
+  function renderSecondary(entry){
+    if(!entry){
+      secChart.setOption({
+        backgroundColor: "transparent",
+        title: { text: "点击上方气泡查看详情", left: "center", top: "44%", textStyle: { color: "#94a3b8", fontSize: 13, fontWeight: "normal" } },
+        xAxis: { show: false }, yAxis: { show: false }, series: [], grid: { left: 0, right: 0, top: 0, bottom: 0 }
+      }, true);
+      $("secSub").textContent = "点击上方气泡，查看该品种近窗口期每日「价格涨跌幅 × IV 变化」散点";
+      return;
+    }
+    var pr = entry.product, t = entry.dateIndex, W = state.window;
+    var xs = [], ys = [], ds = [];
+    for(var k = t - W + 1; k <= t; k++){
+      var a = pr.rp[k], b = pr.rv[k];
+      if(a == null || b == null) continue;
+      xs.push(a * 100);
+      ys.push(state.ivMode === "abs" ? b : b * 100);
+      ds.push(pr.D[k]);
+    }
+    var fit = linearFit(xs, ys);
+    var slope = fit.slope, intercept = fit.intercept;
+    var xmin = Math.min.apply(null, xs), xmax = Math.max.apply(null, xs);
+    var lineData = [[xmin, slope * xmin + intercept], [xmax, slope * xmax + intercept]];
+
+    var unit = state.ivMode === "abs" ? "IV点数" : "IV涨跌幅%";
+    $("secSub").textContent = entry.base + (CN[entry.base] ? (" " + CN[entry.base]) : "") + " · " + state.date +
+      " 前 " + W + " 交易日 · ρ=" + entry.corr.toFixed(3);
+
+    secChart.setOption({
+      backgroundColor: "transparent",
+      title: { text: entry.base + (CN[entry.base] ? (" " + CN[entry.base]) : ""), left: "left", top: 0, textStyle: { fontSize: 13.5, fontWeight: 700, color: "#1e293b" } },
+      grid: { left: 56, right: 24, top: 36, bottom: 44 },
+      tooltip: {
+        trigger: "item", backgroundColor: "rgba(30,41,59,0.95)", borderColor: "transparent", padding: [8, 12],
+        textStyle: { color: "#fff", fontSize: 12 }, extraCssText: "border-radius:8px;",
+        formatter: function(p){
+          if(p.seriesName === "回归") return "线性趋势线";
+          var idx = p.dataIndex;
+          return '<b>' + ds[idx] + '</b><br/>价格涨跌幅 ' + (xs[idx] >= 0 ? "+" : "") + xs[idx].toFixed(2) + '%<br/>' +
+            'IV 变化 ' + (ys[idx] >= 0 ? "+" : "") + ys[idx].toFixed(2) + " " + unit;
+        }
+      },
+      xAxis: { type: "value", name: "价格涨跌幅 %", nameLocation: "middle", nameGap: 26,
+        nameTextStyle: { fontSize: 11.5, color: "#94a3b8" }, scale: true,
+        axisLabel: { color: "#94a3b8", fontSize: 11, formatter: "{value}%" },
+        splitLine: { lineStyle: { color: "#f1f5f9" } },
+        axisLine: { lineStyle: { color: "#e2e8f0" } }, axisTick: { show: false } },
+      yAxis: { type: "value", name: unit, nameTextStyle: { fontSize: 11.5, color: "#94a3b8" }, scale: true,
+        axisLabel: { color: "#94a3b8", fontSize: 11 }, splitLine: { lineStyle: { color: "#f1f5f9", type: "dashed" } },
+        axisLine: { lineStyle: { color: "#e2e8f0" } }, axisTick: { show: false } },
+      series: [
+        { name: "日度点", type: "scatter", data: xs.map(function(x, i){ return [x, ys[i]]; }),
+          symbolSize: 9, itemStyle: { color: "#2563eb", opacity: 0.8, borderColor: "#fff", borderWidth: 1.5, shadowBlur: 5, shadowColor: "rgba(0,0,0,0.15)" },
+          markLine: { silent: true, symbol: "none", lineStyle: { color: "#cbd5e1", type: "dashed" }, data: [{ yAxis: 0 }, { xAxis: 0 }] } },
+        { name: "回归", type: "line", data: lineData, symbol: "none",
+          lineStyle: { color: "#ef4444", width: 2.5, type: "solid" }, tooltip: { show: false } }
+      ]
+    }, true);
+  }
+
+  function renderAll(){
+    if(!state.model) return;
+    renderBubble();
+    renderSecondary(null);
+  }
+
+  function reparse(){
+    if(!state.rawBuffer) return;
+    state.model = CorrAnalyzer.parseFile(state.rawBuffer, { window: state.window, ivMode: state.ivMode });
+    state.date = state.model.maxDate;
+    populateDates();
+    renderAll();
+  }
+
+  // ---- 事件绑定 ----
+  function bind(){
+    $("dateSelect").addEventListener("change", function(e){ state.date = e.target.value; renderAll(); });
+    $("thrRange").addEventListener("input", function(e){
+      state.threshold = parseFloat(e.target.value);
+      $("thrVal").textContent = state.threshold.toFixed(2);
+      renderBubble();
+    });
+    $("showAll").addEventListener("change", function(e){ state.showAll = e.target.checked; renderBubble(); });
+    $("ivModeSelect").addEventListener("change", function(e){ state.ivMode = e.target.value; reparse(); });
+    $("windowSelect").addEventListener("change", function(e){
+      state.window = parseInt(e.target.value, 10); reparse();
+    });
+    $("exportBtn").addEventListener("click", function(){
+      if(!bubbleChart) return;
+      var url = bubbleChart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#fff" });
+      var a = document.createElement("a"); a.href = url;
+      a.download = "相关性气泡图_" + state.date + ".png"; a.click();
+    });
+  }
+
+  // 静态部署版：无后端心跳，页面为纯静态快照
+  function startHeartbeat(){
+    return;
+  }
+
+  function initCharts(){
+    bubbleChart = echarts.init($("bubble"));
+    secChart = echarts.init($("secondary"));
+    bubbleChart.on("click", function(params){
+      if(params.data && params.data.product){ renderSecondary(params.data); }
+    });
+    window.addEventListener("resize", function(){ bubbleChart.resize(); secChart.resize(); });
+  }
+
+  initCharts();
+  bind();
+  loadData();
+})();
+</script>
+</body>
+</html>

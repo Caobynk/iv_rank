@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>国内期货历史波动率估计</title>
+<script src="./echarts.min.js"></script>
+<script>if (typeof echarts === 'undefined') { document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"><\/script>'); }</script>
+<style>
+  :root {
+    --bg: #f4f6fa; --card: #ffffff; --line: #e8ecf3; --text: #1f2733; --muted: #8a94a6;
+    --price: #2f6fed; --vol: #ef7a33; --accent: #2f6fed;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px 20px 40px; }
+  header h1 { font-size: 22px; margin: 0 0 4px; font-weight: 700; }
+  header p { margin: 0; color: var(--muted); font-size: 13px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(31,39,51,.04); margin-top: 18px;
+  }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; padding: 16px 18px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  select, button {
+    font-family: inherit; font-size: 14px; color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; background: #fff;
+    padding: 8px 12px; outline: none; cursor: pointer; transition: .15s;
+  }
+  select:hover, button:hover { border-color: #c4ccd8; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { filter: brightness(1.05); }
+  .spacer { flex: 1; }
+  .status { font-size: 12px; color: var(--muted); padding: 0 18px 4px; min-height: 16px; }
+  .cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; padding: 4px 18px 16px; }
+  .card { background: #fafbfd; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .card .k { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .card .v { font-size: 18px; font-weight: 700; }
+  .card .v.small { font-size: 15px; }
+  #chart { width: 100%; height: 480px; padding: 8px 10px 14px; }
+  #distChart { width: 100%; height: 300px; padding: 8px 10px 14px; }
+  footer { margin-top: 16px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+  .err { color: #d9534f; }
+  @media (max-width: 900px) { .cards { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 560px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>国内期货历史波动率估计</h1>
+    <p>价格指数为各月份合约按持仓量(OI)加权平均，规避主连换月跳空导致的波动率失真 · 覆盖上期/大商/郑商/能源/中金/广期所全品种</p>
+  </header>
+
+  <div class="panel">
+    <div class="controls">
+      <div class="field">
+        <label>品种</label>
+        <select id="symbol" style="min-width:200px;"></select>
+      </div>
+      <div class="field">
+        <label>波动率估计方法</label>
+        <select id="method">
+          <option value="close_to_close">历史波动率(收盘价)</option>
+          <option value="ewma">EWMA(风险矩阵 λ=0.94)</option>
+          <option value="parkinson">Parkinson(高低价)</option>
+          <option value="garman_klass">Garman-Klass(开高低收)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>滚动窗口(交易日)</label>
+        <select id="window" disabled>
+          <option value="20">20</option>
+          <option value="30" selected>30</option>
+          <option value="60">60</option>
+          <option value="90">90</option>
+          <option value="120">120</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>起始年份</label>
+        <select id="startYear" disabled></select>
+      </div>
+      <button id="refresh" class="primary" disabled>刷新数据（静态版）</button>
+      <div class="spacer"></div>
+      <div class="field">
+        <label>当前方法说明</label>
+        <div id="methodDesc" style="font-size:12px;color:var(--muted);padding:8px 0;max-width:320px;"></div>
+      </div>
+    </div>
+    <div class="status" id="status">加载中…</div>
+    <div class="cards" id="cards"></div>
+    <div id="chart"></div>
+    <div class="status" id="distStatus" style="padding-top:0;"></div>
+    <div id="distChart"></div>
+  </div>
+
+  <footer>
+    <div>· 价格指数为同品种各月份合约收盘价按持仓量加权平均，天然随换月平滑过渡，波动率估计更稳健。</div>
+    <div>· 年化因子 252 个交易日；EWMA 不使用固定窗口（λ=0.94 控制衰减）。</div>
+    <div>· 数据源：akshare 新浪期货日线（含各合约持仓量）；可下拉选择起始年份（默认近3年）。</div>
+    <div>· 服务使用动态端口，关闭本网页将自动停止后台服务并释放端口；浏览器异常关闭时也会在约 90 秒内自动释放。</div>
+  </footer>
+</div>
+
+<script>
+const METHOD_DESC = {
+  close_to_close: "滚动窗口内日对数收益率的样本标准差，年化。最常用。",
+  ewma: "RiskMetrics 指数加权：σ²=λσ²₋₁+(1−λ)r²₋₁，对近期波动更敏感。",
+  parkinson: "利用每日最高/最低价：σ²=(1/4ln2)·(ln(H/L))²，捕捉日内振幅。",
+  garman_klass: "利用每日开高低收：0.5(ln H/L)²−(2ln2−1)(ln C/O)²，信息利用最充分。"
+};
+
+function fmtTs(ts) {
+  const dt = new Date(ts);
+  const p = n => String(n).padStart(2, '0');
+  return dt.getFullYear() + '-' + p(dt.getMonth() + 1) + '-' + p(dt.getDate());
+}
+
+let chart = null;
+let chartDist = null; // 分布小提琴图实例
+let current = null; // 当前已加载数据
+
+function setStatus(msg, isErr) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status' + (isErr ? ' err' : '');
+}
+
+function buildCards(d, method) {
+  const vol = d.vol[method].filter(v => v !== null);
+  const lastVol = d.vol[method][d.vol[method].length - 1];
+  const maxV = vol.length ? Math.max(...vol) : null;
+  const minV = vol.length ? Math.min(...vol) : null;
+  const cards = [
+    ['最新价', d.price[d.price.length - 1] != null ? d.price[d.price.length - 1].toFixed(2) : '—'],
+    ['最新波动率', lastVol != null ? (lastVol * 100).toFixed(2) + '%' : '—'],
+    ['区间最大波动率', maxV != null ? (maxV * 100).toFixed(2) + '%' : '—'],
+    ['区间最小波动率', minV != null ? (minV * 100).toFixed(2) + '%' : '—'],
+    ['数据区间', `${d.start} ~ ${d.end}`, true],
+    ['数据点数', d.points],
+  ];
+  const box = document.getElementById('cards');
+  box.replaceChildren();
+  for (const [k, v, small] of cards) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const kEl = document.createElement('div');
+    kEl.className = 'k';
+    kEl.textContent = k;
+    const vEl = document.createElement('div');
+    vEl.className = 'v' + (small ? ' small' : '');
+    vEl.textContent = v;
+    card.append(kEl, vEl);
+    box.appendChild(card);
+  }
+}
+
+function buildOption(d, method) {
+  const priceData = d.dates.map((dt, i) => [new Date(dt).getTime(), d.price[i]]);
+  const volData = d.dates.map((dt, i) => [new Date(dt).getTime(), d.vol[method][i] == null ? null : +(d.vol[method][i] * 100).toFixed(3)]);
+  return {
+    backgroundColor: 'transparent',
+    title: {
+      text: `${d.name}（${d.symbol}） 价格指数与波动率`,
+      left: 16, top: 8, textStyle: { fontSize: 15, fontWeight: 600, color: '#1f2733' }
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross',
+        label: {
+          backgroundColor: '#6a7985',
+          formatter: function (params) {
+            return params.axisDimension === 'x' ? fmtTs(params.value) : params.value;
+          }
+        }
+      },
+      formatter: function (ps) {
+        if (!ps.length) return '';
+        let s = fmtTs(ps[0].value[0]) + '<br/>';
+        for (const p of ps) {
+          const val = p.value[1];
+          const txt = val == null ? '—' : (p.seriesName.indexOf('波动率') >= 0 ? val.toFixed(2) + '%' : val.toFixed(2));
+          s += `${p.marker}${p.seriesName}: <b>${txt}</b><br/>`;
+        }
+        return s;
+      }
+    },
+    legend: { data: ['价格(指数)', '波动率'], top: 10, right: 16 },
+    grid: { left: 64, right: 64, top: 56, bottom: 78 },
+    xAxis: {
+      type: 'time', boundaryGap: false,
+      axisLine: { lineStyle: { color: '#c4ccd8' } },
+      axisLabel: { color: '#8a94a6', formatter: function (val) { return fmtTs(val); } }
+    },
+    yAxis: [
+      {
+        type: 'value', name: '价格(指数)', position: 'left', scale: true,
+        nameTextStyle: { color: '#2f6fed' },
+        axisLine: { show: true, lineStyle: { color: '#2f6fed' } },
+        axisLabel: { color: '#2f6fed', formatter: v => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v },
+        splitLine: { lineStyle: { color: '#eef1f6' } }
+      },
+      {
+        type: 'value', name: '波动率(%)', position: 'right', scale: true,
+        nameTextStyle: { color: '#ef7a33' },
+        axisLine: { show: true, lineStyle: { color: '#ef7a33' } },
+        axisLabel: { color: '#ef7a33', formatter: '{value}%' },
+        splitLine: { show: false }
+      }
+    ],
+    dataZoom: [
+      { type: 'inside', xAxisIndex: 0 },
+      { type: 'slider', xAxisIndex: 0, bottom: 18, height: 22, borderColor: '#e8ecf3' }
+    ],
+    series: [
+      {
+        name: '价格(指数)', type: 'line', yAxisIndex: 0, data: priceData,
+        showSymbol: false, smooth: false, lineStyle: { width: 1.6, color: '#2f6fed' },
+        itemStyle: { color: '#2f6fed' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(47,111,237,0.18)' },
+            { offset: 1, color: 'rgba(47,111,237,0.01)' }
+          ])
+        },
+        z: 1
+      },
+      {
+        name: '波动率', type: 'line', yAxisIndex: 1, data: volData,
+        showSymbol: false, smooth: true, lineStyle: { width: 2, color: '#ef7a33' },
+        itemStyle: { color: '#ef7a33' }, z: 2
+      }
+    ]
+  };
+}
+
+function renderChart(method) {
+  if (!current) return;
+  chart.setOption(buildOption(current, method), true);
+  buildCards(current, method);
+  updateDist(method);
+}
+
+// ====== 波动率分布小提琴图（随主图 dataZoom 联动重算） ======
+let violinGrid = null;   // 当前 KDE 网格 [{v, d}]
+let violinMaxD = 1;      // 当前 KDE 最大密度（用于归一化宽度）
+
+function throttle(fn, wait) {
+  let last = 0, timer = null;
+  return function (...args) {
+    const now = Date.now();
+    const remain = wait - (now - last);
+    if (remain <= 0) {
+      if (timer) { clearTimeout(timer); timer = null; }
+      last = now; fn.apply(this, args);
+    } else if (!timer) {
+      timer = setTimeout(() => { last = Date.now(); timer = null; fn.apply(this, args); }, remain);
+    }
+  };
+}
+
+// Gaussian KDE（Silverman 带宽），输入为已 *100 的波动率百分比数组
+function gaussianKDE(samples) {
+  const n = samples.length;
+  if (n < 2) return null;
+  const mean = samples.reduce((a, b) => a + b, 0) / n;
+  let varSum = 0;
+  for (const s of samples) varSum += (s - mean) * (s - mean);
+  const std = Math.sqrt(varSum / (n - 1));
+  const bw = (std > 0 ? std : 1) * Math.pow(4 / (3 * n), 0.2) || 1;
+  const min = Math.min(...samples), max = Math.max(...samples);
+  const lo = Math.max(0, min - 3 * bw), hi = max + 3 * bw;
+  const M = 128;
+  const norm = 1 / (n * bw * Math.sqrt(2 * Math.PI));
+  const grid = [];
+  for (let i = 0; i <= M; i++) {
+    const x = lo + (hi - lo) * i / M;
+    let dens = 0;
+    for (const s of samples) {
+      const u = (x - s) / bw;
+      dens += Math.exp(-0.5 * u * u);
+    }
+    grid.push({ v: x, d: dens * norm });
+  }
+  const maxD = Math.max(...grid.map(g => g.d)) || 1;
+  return { grid, maxD, lo, hi };
+}
+
+function medianOf(samples) {
+  if (!samples.length) return null;
+  const a = [...samples].sort((x, y) => x - y);
+  const m = Math.floor(a.length / 2);
+  return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+}
+
+function percentileRank(samples, value) {
+  if (!samples.length) return null;
+  let le = 0;
+  for (const s of samples) if (s <= value) le++;
+  return le / samples.length * 100;
+}
+
+// 读取主图 dataZoom 当前可见时间范围（时间戳）
+function getVisibleRange() {
+  if (!current) return [null, null];
+  const zo = chart.getOption().dataZoom[0];
+  const times = current.dates.map(d => new Date(d).getTime());
+  const minT = Math.min(...times), maxT = Math.max(...times);
+  let s, e;
+  if (zo.startValue != null && zo.endValue != null) {
+    s = zo.startValue; e = zo.endValue;
+  } else {
+    s = minT + (maxT - minT) * (zo.start || 0) / 100;
+    e = minT + (maxT - minT) * (zo.end || 100) / 100;
+  }
+  return [s, e];
+}
+
+function updateDist(method) {
+  if (!current || !chartDist) return;
+  method = method || document.getElementById('method').value;
+  const [s, e] = getVisibleRange();
+  // 取当前可见区间内的有效波动率（*100 百分比）
+  const vis = [];
+  current.dates.forEach((dt, i) => {
+    const v = current.vol[method][i];
+    if (v == null) return;
+    const t = new Date(dt).getTime();
+    if (s != null && e != null && (t < s || t > e)) return;
+    vis.push(v * 100);
+  });
+  if (vis.length < 2) {
+    chartDist.clear();
+    setDistStatus('当前可见区间内有效波动率数据不足 2 个，无法绘制分布。');
+    return;
+  }
+  const kde = gaussianKDE(vis);
+  violinGrid = kde.grid; violinMaxD = kde.maxD;
+  // 最新（最新一个非空）波动率及其在可见分布中的分位数
+  const arr = current.vol[method];
+  let latest = null;
+  for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) { latest = arr[i] * 100; break; }
+  const med = medianOf(vis);
+  const pRank = latest != null ? percentileRank(vis, latest) : null;
+  const xMax = Math.max(Math.ceil(kde.hi), Math.ceil((latest || 0) + 1));
+  const opt = {
+    backgroundColor: 'transparent',
+    title: {
+      text: `历史波动率分布（当前可见区间 · 样本 ${vis.length} 个）`,
+      left: 16, top: 6, textStyle: { fontSize: 14, fontWeight: 600, color: '#1f2733' }
+    },
+    tooltip: {
+      trigger: 'axis',
+      formatter: function (ps) {
+        if (!ps.length) return '';
+        return `波动率 ${(+ps[0].axisValue).toFixed(2)}%`;
+      }
+    },
+    legend: { data: ['波动率分布', '中位数', '当前最新'], top: 8, right: 16, textStyle: { fontSize: 11, color: '#8a94a6' } },
+    grid: { left: 56, right: 24, top: 44, bottom: 40 },
+    xAxis: {
+      type: 'value', name: '波动率(%)', min: 0, max: xMax,
+      nameTextStyle: { color: '#ef7a33' },
+      axisLine: { lineStyle: { color: '#c4ccd8' } },
+      axisLabel: { color: '#ef7a33', formatter: '{value}%' },
+      splitLine: { lineStyle: { color: '#eef1f6' } }
+    },
+    yAxis: {
+      type: 'value', min: -1.08, max: 1.08, show: false,
+      splitLine: { show: false }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false }
+    },
+    series: [
+      {
+        name: '波动率分布', type: 'custom', data: [0],
+        renderItem: function (params, api) {
+          if (!violinGrid || !violinGrid.length) return;
+          const pts = [];
+          for (const g of violinGrid) pts.push(api.coord([g.v, g.d / violinMaxD]));
+          for (let i = violinGrid.length - 1; i >= 0; i--) pts.push(api.coord([violinGrid[i].v, -violinGrid[i].d / violinMaxD]));
+          return {
+            type: 'polygon',
+            shape: { points: pts },
+            style: api.style({ fill: 'rgba(239,122,51,0.32)', stroke: '#ef7a33', lineWidth: 1.6 })
+          };
+        },
+        z: 1, silent: true
+      },
+      {
+        name: '中位数', type: 'line', data: [[med, 1], [med, -1]],
+        showSymbol: false, lineStyle: { color: '#2f6fed', type: 'dashed', width: 1.4 },
+        z: 3, tooltip: { show: false }
+      },
+      {
+        name: '当前最新', type: 'line', data: [[latest, 1], [latest, -1]],
+        showSymbol: false, lineStyle: { color: '#d9534f', width: 2 },
+        z: 4, tooltip: { show: false }
+      }
+    ]
+  };
+  chartDist.setOption(opt, true);
+  setDistStatus(
+    `样本 ${vis.length} 个 · 中位数(P50) ${med.toFixed(2)}%` +
+    (latest != null ? ` · 最新 ${latest.toFixed(2)}%（位于可见分布 P${pRank.toFixed(0)}）` : '')
+  );
+}
+
+function setDistStatus(msg) {
+  const el = document.getElementById('distStatus');
+  if (el) el.textContent = msg;
+}
+
+async function loadData(refresh) {
+  const symbol = document.getElementById('symbol').value;
+  const window = document.getElementById('window').value;
+  const startYear = document.getElementById('startYear').value;
+  setStatus('正在获取并计算数据（首次可能需数十秒）…');
+  try {
+    const resp = await fetch(`data/${encodeURIComponent(symbol)}.json`);
+    const d = await resp.json();
+    if (d.error) { setStatus('错误：' + d.error, true); return; }
+    current = d;
+    const method = document.getElementById('method').value;
+    renderChart(method);
+    setStatus(`已加载 ${d.name}（${d.symbol}）· ${d.start} ~ ${d.end} · 共 ${d.points} 个交易日 · 窗口 ${d.window} 日`, false);
+  } catch (e) {
+    setStatus('请求失败：' + e, true);
+  }
+}
+
+function initStartYear() {
+  const sel = document.getElementById('startYear');
+  const cur = new Date().getFullYear();
+  const optAuto = document.createElement('option');
+  optAuto.value = 'auto'; optAuto.textContent = '近3年(默认)';
+  sel.appendChild(optAuto);
+  for (let y = cur; y >= 2015; y--) {
+    const o = document.createElement('option');
+    o.value = String(y); o.textContent = y + '年';
+    sel.appendChild(o);
+  }
+  sel.value = 'auto';
+}
+
+function initVarieties() {
+  return fetch('varieties.json').then(r => r.json()).then(groups => {
+    const sel = document.getElementById('symbol');
+    // 默认选中 rb（螺纹钢），不存在则首个
+    let defaultSym = 'rb';
+    groups.forEach(g => {
+      const og = document.createElement('optgroup');
+      og.label = g.exchange_name;
+      g.items.forEach(it => {
+        const o = document.createElement('option');
+        o.value = it.code; o.textContent = `${it.name}（${it.code}）`;
+        og.appendChild(o);
+      });
+      sel.appendChild(og);
+    });
+    if (![...sel.options].some(o => o.value === defaultSym)) defaultSym = sel.options[0].value;
+    sel.value = defaultSym;
+  });
+}
+
+document.getElementById('method').addEventListener('change', e => {
+  document.getElementById('methodDesc').textContent = METHOD_DESC[e.target.value] || '';
+  renderChart(e.target.value);
+});
+document.getElementById('symbol').addEventListener('change', () => loadData(false));
+document.getElementById('window').addEventListener('change', () => loadData(false));
+document.getElementById('refresh').addEventListener('click', () => loadData(true));
+document.getElementById('startYear').addEventListener('change', () => loadData(false));
+// beforeunload + pagehide 双保险：pagehide 在移动端/bfcache 缓存页卸载时更可靠
+
+(async function init() {
+  if (typeof echarts === 'undefined') { setStatus('图表库(ECharts)加载失败，请检查网络。', true); return; }
+  chart = echarts.init(document.getElementById('chart'), null, { renderer: 'canvas' });
+  chartDist = echarts.init(document.getElementById('distChart'), null, { renderer: 'canvas' });
+  window.addEventListener('resize', () => { chart.resize(); if (chartDist) chartDist.resize(); });
+  chart.on('datazoom', throttle(() => updateDist(), 50));
+  document.getElementById('methodDesc').textContent = METHOD_DESC[document.getElementById('method').value];
+  initStartYear();
+  await initVarieties();
+  await loadData(false);
+  // 心跳保活：每 30s 上报一次，覆盖浏览器崩溃/强杀导致 unload 未触发、服务空占端口
+  })();
+</script>
+</body>
+</html>

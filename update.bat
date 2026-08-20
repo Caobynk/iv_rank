@@ -1,6 +1,15 @@
 @echo off
 setlocal
-cd /d D:\WorkBuddy\IV_Rank
+cd /d D:\WorkBuddy\GithubToPages
+
+REM ============================================================
+REM  update.bat - Commodity Options Dashboard static build + push
+REM  1. ensure venv exists, create and install deps if missing
+REM  2. run build_site.py to regenerate static/ snapshots
+REM  3. git commit (only when static/ actually changed)
+REM  4. git push (token first + proxy fallback), Cloudflare auto-rebuild
+REM  Site: https://iv-rank.caobynk.workers.dev/
+REM ============================================================
 
 REM step 1: ensure venv exists, create and install deps if missing
 if not exist venv\Scripts\python.exe (
@@ -8,24 +17,23 @@ if not exist venv\Scripts\python.exe (
   venv\Scripts\python.exe -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 )
 
-REM step 2: regenerate static snapshots from Excel
-venv\Scripts\python.exe build_data.py
+REM step 2: rebuild static site
+venv\Scripts\python.exe build_site.py
 if errorlevel 1 (
-  echo build_data.py failed, abort
+  echo build_site.py failed, abort
   pause
   exit /b 1
 )
 
 REM step 3: commit new snapshots only if they actually changed
-git add static/api
+git add static
 git diff --cached --quiet
 if errorlevel 1 (
   git commit -m "data update %date%"
 )
 
 REM step 4: push local commits to origin
-REM priority: system network (global proxy) first, then proxy file fallback
-REM also pushes commits committed earlier but failed to push (no false deploy message)
+REM priority: token (deploy_token.txt / GH_TOKEN), proxy (deploy_proxy.txt / GH_PROXY)
 set TOKEN=
 if exist deploy_token.txt (
   set /p TOKEN=<deploy_token.txt

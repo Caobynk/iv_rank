@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GEX 观察 · 商品期权 Gamma Exposure</title>
+<script src="./echarts.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Microsoft YaHei", "Segoe UI", sans-serif;
+  background: #f0f2f5; color: #333; min-height: 100vh;
+}
+.up { color: #e74c3c; }
+.down { color: #27ae60; }
+.flat { color: #888; }
+
+.header {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: #fff; padding: 14px 24px; display: flex; align-items: center;
+  justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 12px;
+}
+.header h1 { font-size: 20px; font-weight: 600; letter-spacing: 1px; }
+.header-controls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.header select, .header input, .header button {
+  padding: 7px 10px; font-size: 14px; border-radius: 6px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.12); color: #fff;
+}
+.header input { cursor: text; background: rgba(255,255,255,0.16); }
+.header input::placeholder { color: rgba(255,255,255,0.7); }
+.header select option { background: #ffffff; color: #16213e; }
+.header a.page-link { color: #fff; text-decoration: none; padding: 7px 12px; border: 1px solid rgba(255,255,255,0.35); border-radius: 6px; font-size: 14px; }
+.header a.page-link:hover { background: rgba(255,255,255,0.22); }
+.header button.query-btn { background: rgba(76,175,80,0.3); border-color: rgba(76,175,80,0.6); color: #c8ffc8; font-weight: 600; }
+.header button.query-btn:hover { background: rgba(76,175,80,0.45); }
+.header .field { display: flex; flex-direction: column; gap: 2px; font-size: 11px; opacity: 0.85; }
+.header .field input, .header .field select { font-size: 13px; }
+
+.section-title {
+  margin: 22px 24px 10px; font-size: 16px; font-weight: 600; color: #16213e;
+  border-left: 4px solid #0f3460; padding-left: 10px;
+}
+.gex-cards { display: flex; gap: 14px; margin: 0 24px; flex-wrap: wrap; }
+.gex-card {
+  flex: 1; min-width: 150px; background: #fff; border-radius: 10px; padding: 14px 16px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+}
+.gex-card .label { font-size: 13px; color: #888; margin-bottom: 6px; }
+.gex-card .value { font-size: 22px; font-weight: 700; }
+.gex-card .value.small { font-size: 18px; }
+.gex-card .sub { font-size: 12px; color: #aaa; margin-top: 5px; }
+
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 0 24px 28px; }
+.chart-box { background: #fff; border-radius: 10px; padding: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+.chart-box.full { grid-column: 1 / -1; }
+.chart-title { font-size: 14px; font-weight: 600; color: #16213e; margin-bottom: 6px; }
+.chart { width: 100%; height: 380px; }
+
+.loading { text-align: center; padding: 40px; color: #888; }
+.no-data { text-align: center; padding: 50px; color: #999; }
+.note { margin: 4px 24px 20px; font-size: 12px; color: #999; line-height: 1.7; }
+.note code { background: #eaecef; padding: 1px 5px; border-radius: 3px; color: #444; }
+@media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>GEX 观察 · 商品期权</h1>
+  <div class="header-controls">
+    <select id="varietySelect" onchange="onVarietyChange()">
+      <option value="">（加载品种中…）</option>
+    </select>
+    <div class="field">交易日<input type="date" id="tradeDate" value="2026-08-18" disabled></div>
+    <select id="monthSelect" onchange="onMonthChange()">
+      <option value="">（先查询）</option>
+    </select>
+    <button class="query-btn" onclick="query()">查询</button>
+    <a class="page-link" href="/help">使用说明 ›</a>
+  </div>
+</div>
+
+<div class="section-title">Gamma Exposure 分析（历史数据）</div>
+<div class="gex-cards" id="gexCards"><div class="loading">请选择品种与交易日后点击「查询」</div></div>
+
+<div class="chart-grid">
+  <div class="chart-box">
+    <div class="chart-title">按行权价 GEX（认购红 / 认沽蓝）— Gamma Wall</div>
+    <div class="chart" id="gexBar"></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">净 GEX 随标的价格曲线（Gamma Flip 零界点）</div>
+    <div class="chart" id="gexProfile"></div>
+  </div>
+  <div class="chart-box full">
+    <div class="chart-title">累计净 GEX（按行权价排序）</div>
+    <div class="chart" id="gexCum"></div>
+  </div>
+</div>
+
+<div class="note">
+  数据来源：OI/行权价/最痛点复用「商品期权成交持仓分布及最痛点位绘制」项目的历史数据；<b>标的价 S 与 IV 由各交易所官方每日行情实时抓取</b>（历史交易日、非盘中实时）。<br>
+  口径：call 贡献 +、put 贡献 −（标准 Gamma Flip 分解）；净 GEX &gt; 0 表示做市商净多头 gamma（稳定/均值回归），&lt; 0 表示净空头（趋势/放大波动）；零界点即 <b>Gamma Flip</b>。单合约 GEX = Γ·OI·合约单位·S²/100（商品=期货期权，r=0 时 Black-76 gamma 与 BS 同形，T=真实到期日/365）。<br>
+  状态分类用<b>无量纲归一化</b> norm = net/(|Σcall|+|Σput|) ∈ [-1,1]（与合约乘数/尺度无关，跨品种可比）：norm &gt; +0.05 → LONG_GAMMA（震荡），norm &lt; -0.05 → SHORT_GAMMA（趋势），其间 NEUTRAL。
+  <b>真实取值</b>：① <code>标的价格 S</code> = 各月标的期货结算价（期货每日行情，自动取值）；② <code>IV</code> = 各期权结算价经 <b>Black-76 反解</b>（逐行权价，形成波动率微笑；反解失败依次回退交易所公布IV→该月ATM IV→20%）；③ <code>合约单位</code> 默认按品种查表（缺失则 10，仅全局缩放，不改变 Flip 价位与形态）。
+  抓取失败时自动降级为 ATM 近似 + IV 20% 并在概览标注。
+</div>
+
+<script>
+let cachedData = null;       // /api/commodity/gex 的完整响应
+let currentMonthIdx = 0;
+let barChart, profileChart, cumChart;
+
+function fmtYi(x) {
+  if (x === null || x === undefined) return '--';
+  const a = Math.abs(x) / 1e8;
+  return (x < 0 ? '-' : '') + a.toFixed(2) + '亿';
+}
+
+// ---------- 品种下拉（按交易所分组） ----------
+async function loadVarieties() {
+  try {
+    const r = await fetch('varieties.json', { cache: 'no-store' });
+    const d = await r.json();
+    const sel = document.getElementById('varietySelect');
+    if (!d.success) { sel.innerHTML = '<option value="">加载失败</option>'; return; }
+    let html = '';
+    for (const g of d.groups) {
+      html += `<optgroup label="${g.exchange_name}">`;
+      for (const v of g.varieties) html += `<option value="${v.code}">${v.name}（${v.code}）</option>`;
+      html += '</optgroup>';
+    }
+    sel.innerHTML = html;
+  } catch (e) {
+    document.getElementById('varietySelect').innerHTML = '<option value="">加载失败</option>';
+  }
+}
+
+// 默认交易日 = 昨天
+function defaultYesterday() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// ---------- 查询 ----------
+async function query() {
+  const variety = document.getElementById('varietySelect').value;
+  const tradeDate = document.getElementById('tradeDate').value;
+  if (!variety) { alert('请先选择品种'); return; }
+  if (!tradeDate) { alert('请选择交易日'); return; }
+
+  const params = new URLSearchParams();
+  params.set('variety', variety);
+  params.set('trade_date', tradeDate);
+
+  const cards = document.getElementById('gexCards');
+  cards.innerHTML = '<div class="loading">加载中…</div>';
+  try {
+    const resp = await fetch(`data/${encodeURIComponent(variety)}.json`, { cache: 'no-store' });
+    const data = await resp.json();
+    if (!data.success) { cards.innerHTML = `<div class="no-data">${data.error || '查询失败'}</div>`; return; }
+    cachedData = data;
+    populateMonth(data.months);
+    renderAll();
+  } catch (e) {
+    cards.innerHTML = `<div class="no-data">请求失败：${e}</div>`;
+  }
+}
+
+function populateMonth(months) {
+  const sel = document.getElementById('monthSelect');
+  sel.innerHTML = months.map((m, i) => `<option value="${i}">${m.month}（剩${m.T_days}天 · IV${(m.iv_atm*100).toFixed(1)}% · 净${fmtYi(m.total_net_gex)}）</option>`).join('');
+  currentMonthIdx = 0;
+  sel.value = '0';
+}
+
+// 由当前选中月份构造与金融页同构的 gex 对象，复用同一套渲染函数
+function buildGexForMonth() {
+  const mb = cachedData.months[currentMonthIdx];
+  const agg = mb.strikes.map((k, i) => ({
+    strike: k, gex_call: mb.gex_call[i], gex_put: mb.gex_put[i], gex_net: mb.gex_net[i]
+  }));
+  return {
+    strikes: agg, profile: mb.profile, gamma_flip: mb.gamma_flip,
+    max_wall: mb.max_wall, total_net_gex: mb.total_net_gex,
+    underlying: mb.S_used, atm_strike: mb.atm_strike, days_left: mb.T_days,
+  };
+}
+
+function renderAll() {
+  const mb = cachedData.months[currentMonthIdx];
+  renderCards(mb);
+  const gex = buildGexForMonth();
+  renderGexBar(gex);
+  renderGexProfile(gex);
+  renderGexCum(gex);
+}
+
+const S_SRC_TXT = { futures: '期货结算价', atm_approx: 'ATM近似(抓取失败)', manual: '手动指定' };
+const IV_SRC_TXT = { computed: 'Black-76反解', default: '默认0.20(无行情)', manual: '手动指定' };
+const REGIME_TXT = { LONG_GAMMA: '净多头·震荡市', SHORT_GAMMA: '净空头·趋势市', NEUTRAL: '均衡·中性' };
+
+function renderCards(mb) {
+  const p = cachedData.params;
+  const flip = mb.gamma_flip;
+  const net = mb.total_net_gex;
+  const wall = mb.max_wall;
+  const S = mb.S_used;
+  const cards = [
+    { label: '品种 / 交易所', value: cachedData.variety_name, small: true,
+      sub: `${cachedData.exchange_name} · ${cachedData.trade_date}` },
+    { label: '标的期货价 S', value: S != null ? Number(S).toFixed(2) : '—', small: true,
+      sub: `${S_SRC_TXT[mb.S_source] || mb.S_source} · ATM ${mb.atm_strike != null ? mb.atm_strike.toFixed(2) : '—'}` },
+    { label: 'ATM 隐含波动率', value: (mb.iv_atm * 100).toFixed(1) + '%', small: true,
+      sub: `${IV_SRC_TXT[mb.iv_source] || mb.iv_source} · 合约单位 ${p.multiplier}` },
+    { label: `当前月净 GEX（${mb.month}）`, value: fmtYi(net), small: false,
+      color: (mb.regime === 'LONG_GAMMA') ? '#27ae60' : (mb.regime === 'SHORT_GAMMA') ? '#e74c3c' : '#888',
+      sub: `${(mb.regime || 'NEUTRAL')} · ${REGIME_TXT[mb.regime] || ''} · norm=${(mb.normalized_gex != null) ? mb.normalized_gex.toFixed(3) : '—'}` },
+    { label: 'Gamma Flip 价位', value: flip ? flip.toFixed(3) : '—', small: false,
+      sub: flip ? (flip < S ? '低于现价·下方偏空' : '高于现价·上方偏多') : '无翻转(未穿越零轴)' },
+    { label: '最大 Gamma Wall', value: wall ? wall.strike.toFixed(3) : '—', small: false,
+      sub: wall ? `净 ${fmtYi(wall.gex_net)}` : '' },
+    { label: '最痛点 MaxPain', value: mb.max_pain != null ? Number(mb.max_pain).toFixed(2) : '—', small: true,
+      sub: `Call OI ${mb.total_call_oi.toLocaleString()} / Put OI ${mb.total_put_oi.toLocaleString()}` },
+  ];
+  document.getElementById('gexCards').innerHTML = cards.map(c =>
+    `<div class="gex-card"><div class="label">${c.label}</div>
+     <div class="value ${c.small ? 'small' : ''}" style="color:${c.color || '#16213e'}">${c.value}</div>
+     ${c.sub ? `<div class="sub">${c.sub}</div>` : ''}</div>`
+  ).join('');
+}
+
+// ============ 以下三个渲染函数与金融页同构，已规避 ECharts 5.5.0 的 coord/visualMap 崩溃 ============
+function renderGexBar(g) {
+  if (!barChart) barChart = echarts.init(document.getElementById('gexBar'));
+  const strikes = g.strikes.slice().sort((a, b) => a.strike - b.strike);
+  const cats = strikes.map(s => s.strike.toFixed(3));
+  const callData = strikes.map(s => s.gex_call);
+  const putData = strikes.map(s => s.gex_put);
+  const maxWall = g.max_wall;
+  // markPoint 的 coord 必须二维 [x, y]；单元素在 5.5.0 会触发 reading 'coord'
+  const mp = maxWall ? [{
+    name: 'Gamma Wall',
+    coord: [maxWall.gex_net, maxWall.strike.toFixed(3)],
+    value: fmtYi(maxWall.gex_net),
+    itemStyle: { color: '#ff9800' }
+  }] : [];
+  barChart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' },
+      formatter: p => {
+        let s = '行权价 ' + p[0].axisValue + '<br/>';
+        p.forEach(it => { s += `${it.marker}${it.seriesName}: ${fmtYi(it.value)}<br/>`; });
+        return s;
+      } },
+    legend: { data: ['认购 GEX', '认沽 GEX'], top: 0 },
+    grid: { left: 70, right: 30, top: 36, bottom: 30 },
+    xAxis: { type: 'value', name: 'GEX(亿元)', axisLabel: { formatter: v => (v / 1e8).toFixed(1) } },
+    yAxis: { type: 'category', data: cats, inverse: true },
+    series: [
+      { name: '认购 GEX', type: 'bar', data: callData, itemStyle: { color: '#e74c3c' },
+        markPoint: { symbolSize: 46, data: mp, label: { fontSize: 10 } } },
+      { name: '认沽 GEX', type: 'bar', data: putData, itemStyle: { color: '#3498db' } },
+    ]
+  }, true);
+}
+
+function renderGexProfile(g) {
+  if (!profileChart) profileChart = echarts.init(document.getElementById('gexProfile'));
+  const pts = g.profile.map(p => [p.spot, p.net_gex]);
+  const flip = g.gamma_flip;
+  const markLines = [{ yAxis: 0, lineStyle: { color: '#999' }, label: { formatter: '0' } }];
+  if (flip) markLines.push({ xAxis: flip, lineStyle: { color: '#ff9800', type: 'dashed' },
+    label: { formatter: 'Flip ' + flip.toFixed(3), color: '#ff9800' } });
+  profileChart.setOption({
+    tooltip: { trigger: 'axis', formatter: p => `标的价格 ${p[0].value[0].toFixed(3)}<br/>净 GEX ${fmtYi(p[0].value[1])}` },
+    grid: { left: 70, right: 30, top: 20, bottom: 40 },
+    xAxis: { type: 'value', name: '标的价格', scale: true, axisLabel: { formatter: v => v.toFixed(2) } },
+    yAxis: { type: 'value', name: '净 GEX(亿元)', axisLabel: { formatter: v => (v / 1e8).toFixed(1) } },
+    // 避开 visualMap（5.5.0 下 visualMap+areaStyle 会触发 reading 'coord'），改用回调着色
+    series: [{
+      type: 'line', data: pts, showSymbol: false,
+      lineStyle: { width: 2, color: p => (p.value[1] >= 0 ? '#27ae60' : '#e74c3c') },
+      areaStyle: { opacity: 0.15, color: p => (p.value[1] >= 0 ? '#27ae60' : '#e74c3c') },
+      markLine: { silent: true, symbol: 'none', data: markLines }
+    }]
+  }, true);
+}
+
+function renderGexCum(g) {
+  if (!cumChart) cumChart = echarts.init(document.getElementById('gexCum'));
+  const strikes = g.strikes.slice().sort((a, b) => a.strike - b.strike);
+  let cum = 0;
+  const xs = [], ys = [];
+  for (const s of strikes) { cum += s.gex_net; xs.push(s.strike.toFixed(3)); ys.push(cum); }
+  cumChart.setOption({
+    tooltip: { trigger: 'axis', formatter: p => `行权价 ${p[0].axisValue}<br/>累计净 GEX ${fmtYi(p[0].value)}` },
+    grid: { left: 70, right: 30, top: 20, bottom: 40 },
+    xAxis: { type: 'category', data: xs, name: '行权价' },
+    yAxis: { type: 'value', name: '累计净 GEX(亿元)', axisLabel: { formatter: v => (v / 1e8).toFixed(1) } },
+    series: [{ type: 'line', data: ys, showSymbol: true,
+      lineStyle: { width: 2, color: p => (p.value >= 0 ? '#27ae60' : '#e74c3c') },
+      itemStyle: { color: p => (p.value >= 0 ? '#27ae60' : '#e74c3c') },
+      areaStyle: { opacity: 0.15, color: p => (p.value >= 0 ? '#27ae60' : '#e74c3c') } }]
+  }, true);
+}
+
+// ---------- 事件 ----------
+function onVarietyChange() { /* 品种切换仅清空，待用户点查询 */ }
+function onMonthChange() {
+  currentMonthIdx = parseInt(document.getElementById('monthSelect').value || '0', 10);
+  if (cachedData) renderAll();
+}
+
+// 初始化
+document.getElementById('tradeDate').value = '2026-08-18';
+loadVarieties();
+window.addEventListener('resize', () => {
+  barChart && barChart.resize(); profileChart && profileChart.resize(); cumChart && cumChart.resize();
+});
+</script>
+</body>
+</html>

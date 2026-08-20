@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品期权 PCR 跟踪</title>
+<script src="./echarts.min.js"></script>
+<style>
+  :root{
+    --bg:#f5f7fa; --panel:#ffffff; --ink:#1f2733; --sub:#6b7785;
+    --line:#e3e8ef; --brand:#2f6fed; --brand2:#0aa66e; --warn:#e8833a;
+    --price:#2f6fed; --pcr:#e8833a; --npcr:#0aa66e;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
+  header{padding:18px 24px;background:var(--panel);border-bottom:1px solid var(--line);}
+  header h1{margin:0;font-size:20px;font-weight:600;}
+  header p{margin:4px 0 0;color:var(--sub);font-size:13px;}
+  .wrap{padding:18px 24px;max-width:1280px;margin:0 auto;}
+  .controls{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field label{font-size:12px;color:var(--sub);}
+  select,input[type=date]{padding:8px 10px;border:1px solid var(--line);border-radius:7px;
+    font-size:14px;background:#fff;color:var(--ink);min-width:160px;}
+  button{padding:9px 16px;border:1px solid var(--line);border-radius:7px;background:#fff;
+    color:var(--ink);font-size:14px;cursor:pointer;transition:.15s;}
+  button:hover{border-color:var(--brand);color:var(--brand);}
+  button.primary{background:var(--brand);color:#fff;border-color:var(--brand);}
+  button.primary:hover{opacity:.9;color:#fff;}
+  button.danger{border-color:#e0b4b4;color:#c0392b;}
+  button.danger:hover{background:#c0392b;color:#fff;border-color:#c0392b;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .spacer{flex:1;}
+  #status{margin:12px 2px;font-size:13px;color:var(--sub);min-height:18px;}
+  #chart{width:100%;height:560px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;}
+  .legend-note{margin-top:10px;font-size:12px;color:var(--sub);line-height:1.7;}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle;}
+</style>
+</head>
+<body>
+<header>
+  <h1>商品期权 PCR 跟踪</h1>
+  <p>2020 年以来各商品期权品种的「持仓量加权价格 / 看涨持仓量 / 看跌持仓量」与 PCR 分析</p>
+</header>
+
+<div class="wrap">
+  <div class="controls">
+    <div class="field">
+      <label>品种</label>
+      <select id="variety"></select>
+    </div>
+    <div class="field">
+      <label>开始日期</label>
+      <input type="date" id="start">
+    </div>
+    <div class="field">
+      <label>结束日期</label>
+      <input type="date" id="end">
+    </div>
+    <button class="primary" id="draw">绘制</button>
+    <div class="spacer"></div>
+    <span style="font-size:12px;color:#888">静态版 · 数据由构建脚本更新</span>
+  </div>
+
+  <div id="status">就绪。</div>
+  <div id="chart"></div>
+
+  <div class="legend-note">
+    <span class="dot" style="background:var(--price)"></span>价格（左轴，持仓量对各月合约结算价加权）
+    <span class="dot" style="background:var(--pcr);margin-left:14px"></span>PCR = 看跌持仓量 / 看涨持仓量（右轴）
+    <span class="dot" style="background:var(--npcr);margin-left:14px"></span>标准化 PCR = (看跌−看涨)/(看跌+看涨)（右轴）
+    <br>说明：部分品种或期权上市较晚，早期位置为空；更新按钮将三表补至最新交易日且不重复补充已有数据。
+  </div>
+</div>
+
+<script>
+const chart = echarts.init(document.getElementById('chart'));
+let VARIETIES = [], RANGE = {first:'', last:''};
+
+function setStatus(msg){ document.getElementById('status').textContent = msg; }
+
+async function init(){
+  try{
+    const r = await fetch('varieties.json');
+    const d = await r.json();
+    VARIETIES = d.varieties || [];
+    RANGE = d.date_range || {};
+    const sel = document.getElementById('variety');
+    sel.innerHTML = '';
+    VARIETIES.forEach(v=>{
+      const o = document.createElement('option');
+      o.value = v.key;
+      o.textContent = `${v.name}（${v.exchange_name}）`;
+      sel.appendChild(o);
+    });
+    // 开始日期默认取该品种「有 PCR 数据的首个日期」，而非所有品种共用全局最早日
+    applyDefaultStart();
+    document.getElementById('end').value = fmt(RANGE.last);
+    setStatus(`已加载 ${VARIETIES.length} 个品种，数据区间 ${RANGE.first} ~ ${RANGE.last}。`);
+  }catch(e){ setStatus('加载品种失败: '+e); }
+}
+
+// 开始日期默认 = 当前所选品种首个有 PCR 数据的日期（回退到全局最早日）
+function applyDefaultStart(){
+  const key = document.getElementById('variety').value;
+  const v = VARIETIES.find(x => x.key === key);
+  const first = (v && v.first_pcr_date) || RANGE.first;
+  document.getElementById('start').value = fmt(first);
+}
+
+function fmt(ymd){ return ymd ? `${ymd.slice(0,4)}-${ymd.slice(4,6)}-${ymd.slice(6,8)}` : ''; }
+function unfmt(s){ return s ? s.replace(/-/g,'') : ''; }
+
+async function draw(){
+  const key = document.getElementById('variety').value;
+  const start = unfmt(document.getElementById('start').value);
+  const end = unfmt(document.getElementById('end').value);
+  if(!key){ setStatus('请先选择品种。'); return; }
+  setStatus('加载数据中...');
+  try{
+    // 静态版：文件名将冒号替换为下划线（Windows 兼容），key 本身保留原格式
+    const fname = key.replace(':', '_');
+    const r = await fetch(`data/${encodeURIComponent(fname)}.json`);
+    const d = await r.json();
+
+    // 静态版：data.json 为全量，按 start/end 本地过滤
+    if (d.dates && d.dates.length) {
+      const idxs = [];
+      d.dates.forEach((dt, i) => {
+        if ((!start || dt >= start) && (!end || dt <= end)) idxs.push(i);
+      });
+      const pick = arr => idxs.map(i => (arr && i < arr.length) ? arr[i] : null);
+      d.dates = idxs.map(i => d.dates[i]);
+      d.price = pick(d.price);
+      d.call_oi = pick(d.call_oi);
+      d.put_oi = pick(d.put_oi);
+      d.pcr = pick(d.pcr);
+      d.norm_pcr = pick(d.norm_pcr);
+    }
+
+    if(!d.dates || d.dates.length===0){ setStatus('该区间无数据。'); chart.clear(); return; }
+    render(d);
+    setStatus(`共 ${d.dates.length} 个交易日。`);
+  }catch(e){ setStatus('绘图失败: '+e); }
+}
+
+function render(d){
+  const dates = d.dates.map(fmt);
+  const opt = {
+    tooltip:{
+      trigger:'axis', confine:true,
+      formatter: function(params){
+        if(!params || !params.length) return '';
+        let html = params[0].axisValue + '<br/>';
+        for(const p of params){
+          const v = p.data;
+          let txt;
+          if(v === null || v === undefined || v === ''){
+            txt = '-';
+          }else if(p.seriesName === '价格'){
+            txt = Number(v).toFixed(2);
+          }else if(p.seriesName === 'PCR'){
+            txt = Number(v).toFixed(3);
+          }else{ // 标准化 PCR
+            txt = Number(v).toFixed(3);
+          }
+          html += p.marker + p.seriesName + ': ' + txt + '<br/>';
+        }
+        return html;
+      }
+    },
+    legend:{data:['价格','PCR','标准化 PCR'], top:6},
+    grid:{left:64, right:96, top:48, bottom:64},
+    xAxis:{type:'category', data:dates, boundaryGap:false,
+      axisLabel:{formatter:v=>v.slice(0,7)}, silent:true},
+    yAxis:[
+      {type:'value', name:'价格', position:'left', scale:true,
+        axisLine:{lineStyle:{color:'var(--price)'}},
+        splitLine:{lineStyle:{color:'#eef1f5'}}},
+      {type:'value', name:'PCR', position:'right', scale:true,
+        axisLine:{show:true, lineStyle:{color:'#e8833a'}},
+        splitLine:{show:false}},
+      {type:'value', name:'标准化PCR', position:'right', offset:56, min:-1, max:1,
+        axisLine:{show:true, lineStyle:{color:'#0aa66e'}},
+        splitLine:{show:false}}
+    ],
+    dataZoom:[
+      {type:'inside', xAxisIndex:0},
+      {type:'slider', xAxisIndex:0, bottom:12, height:18}
+    ],
+    series:[
+      {name:'价格', type:'line', data:d.price, yAxisIndex:0, showSymbol:false,
+        lineStyle:{width:1.6, color:'#2f6fed'}, itemStyle:{color:'#2f6fed'}},
+      {name:'PCR', type:'line', data:d.pcr, yAxisIndex:1, showSymbol:false,
+        lineStyle:{width:1.4, color:'#e8833a'}, itemStyle:{color:'#e8833a'}},
+      {name:'标准化 PCR', type:'line', data:d.norm_pcr, yAxisIndex:2, showSymbol:false,
+        lineStyle:{width:1.4, color:'#0aa66e'}, itemStyle:{color:'#0aa66e'}}
+    ]
+  };
+  chart.setOption(opt, true);
+}
+
+document.getElementById('draw').onclick = draw;
+document.getElementById('variety').addEventListener('change', applyDefaultStart);
+
+
+
+
+// 页面关闭/隐藏时自动停止服务，避免端口残留占用
+window.addEventListener('resize', ()=> chart.resize());
+
+init().then(draw);
+</script>
+</body>
+</html>

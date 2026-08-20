@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品期权成交统计</title>
+    <script src="./echarts.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border-color: #e8ecf1;
+            --primary: #2c5cc9;
+            --primary-light: #eef2ff;
+            --futures-color: #2c5cc9;
+            --options-color: #e0624d;
+            --ratio-color: #e0624d;
+            --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background: var(--bg-color);
+            color: var(--text-primary);
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 24px 32px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .date-input {
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-primary);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .date-input:focus {
+            border-color: var(--primary);
+        }
+
+        .btn {
+            padding: 10px 22px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #2349a0;
+        }
+
+        .btn:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            font-size: 14px;
+        }
+
+        .loading.active {
+            display: inline-flex;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--primary-light);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .card-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .card-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .card-value.options {
+            color: var(--options-color);
+        }
+
+        .card-value.futures {
+            color: var(--futures-color);
+        }
+
+        .exchange-card .exchange-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .exchange-stat {
+            margin-bottom: 12px;
+        }
+
+        .exchange-stat:last-child {
+            margin-bottom: 0;
+        }
+
+        .exchange-stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .exchange-stat-value {
+            font-size: 22px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .exchange-stat-value.futures {
+            color: var(--text-primary);
+        }
+
+        .exchange-stat-value.options {
+            color: var(--options-color);
+        }
+
+        .exchange-count {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 12px;
+        }
+
+        .ratio-card {
+            text-align: center;
+            padding: 28px 20px;
+        }
+
+        .ratio-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .ratio-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .chart-container {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        #chart {
+            width: 100%;
+            height: 720px;
+        }
+
+        #chartOI {
+            width: 100%;
+            height: 720px;
+        }
+
+        .empty-state {
+            display: none;
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state.active {
+            display: block;
+        }
+
+        .error-message {
+            display: none;
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #cf1322;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+
+        .error-message.active {
+            display: block;
+        }
+
+        .info-bar {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <div class="title">商品期权成交统计</div>
+                <div class="subtitle">各交易所具有对应期权品种的期货及期权日均成交量分析</div>
+            </div>
+            <div class="controls">
+                <input type="date" class="date-input" id="dateInput" value="2026-08-18" disabled>
+                <button class="btn" id="analyzeBtn" disabled>分析（静态快照）</button>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <span>数据抓取中...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div id="content">
+            <div class="info-bar" id="infoBar"></div>
+
+            <div class="section">
+                <div class="cards-grid">
+                    <div class="card">
+                        <div class="card-label">期货总成交量</div>
+                        <div class="card-value futures" id="totalFuturesVolume">-</div>
+                        <div class="card-hint">5交易所合计 · 日均</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-label">期权总成交量</div>
+                        <div class="card-value options" id="totalOptionsVolume">-</div>
+                        <div class="card-hint">5交易所合计 · 日均</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">各交易所成交量分布</div>
+                <div class="cards-grid" id="exchangeCards"></div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">期权 / 期货成交量比例</div>
+                <div class="cards-grid" id="ratioCards"></div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">各品种期权日均成交量及期权/期货比</div>
+                <div class="chart-container">
+                    <div id="chart"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="cards-grid">
+                    <div class="card">
+                        <div class="card-label">期货总持仓量</div>
+                        <div class="card-value futures" id="totalFuturesOI">-</div>
+                        <div class="card-hint">5交易所合计 · 日均</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-label">期权总持仓量</div>
+                        <div class="card-value options" id="totalOptionsOI">-</div>
+                        <div class="card-hint">5交易所合计 · 日均</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">各交易所持仓量分布</div>
+                <div class="cards-grid" id="exchangeOICards"></div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">期权 / 期货持仓量比例</div>
+                <div class="cards-grid" id="oiRatioCards"></div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">各品种期权日均持仓量及期权/期货持仓量比</div>
+                <div class="chart-container">
+                    <div id="chartOI"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="empty-state" id="emptyState">
+            选择日期并点击"分析"按钮开始查看数据
+        </div>
+    </div>
+
+    <script>
+        let chartInstance = null;
+        let chartOIInstance = null;
+
+        function formatNumber(num) {
+            return num.toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+        }
+
+        function formatNumber2(num) {
+            return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            const btn = document.getElementById('analyzeBtn');
+            if (show) {
+                loading.classList.add('active');
+                btn.disabled = true;
+            } else {
+                loading.classList.remove('active');
+                btn.disabled = false;
+            }
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMessage');
+            if (msg) {
+                el.textContent = msg;
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+        }
+
+        function renderExchangeCards(exchanges) {
+            const container = document.getElementById('exchangeCards');
+            container.innerHTML = '';
+
+            const order = ['DCE', 'CZCE', 'SHFE', 'INE', 'GFEX'];
+            order.forEach(code => {
+                const ex = exchanges[code];
+                if (!ex) return;
+                const card = document.createElement('div');
+                card.className = 'card exchange-card';
+                card.innerHTML = `
+                    <div class="exchange-name">${ex.exchange_name}</div>
+                    <div class="exchange-stat">
+                        <div class="exchange-stat-label">期货</div>
+                        <div class="exchange-stat-value futures">${formatNumber(ex.total_futures_avg_volume)}</div>
+                    </div>
+                    <div class="exchange-stat">
+                        <div class="exchange-stat-label">期权</div>
+                        <div class="exchange-stat-value options">${formatNumber(ex.total_options_avg_volume)}</div>
+                    </div>
+                    <div class="exchange-count">${ex.variety_count}个品种</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderRatioCards(exchanges) {
+            const container = document.getElementById('ratioCards');
+            container.innerHTML = '';
+
+            const order = ['DCE', 'CZCE', 'SHFE', 'INE', 'GFEX'];
+            const colors = ['#2c5cc9', '#10b981', '#e0624d', '#f59e0b', '#8b5cf6'];
+            order.forEach((code, index) => {
+                const ex = exchanges[code];
+                if (!ex) return;
+                const card = document.createElement('div');
+                card.className = 'card ratio-card';
+                card.innerHTML = `
+                    <div class="ratio-value" style="color: ${colors[index % colors.length]}">${ex.ratio_pct.toFixed(1)}%</div>
+                    <div class="ratio-label">${code}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderChart(varieties) {
+            const chartDom = document.getElementById('chart');
+            if (!chartInstance) {
+                chartInstance = echarts.init(chartDom);
+            }
+
+            // 按期权日均成交量降序（已经是）
+            // 横轴标签：品种代码（大写）+ 品种名称
+            const labels = varieties.map(v => v.variety_code.toUpperCase() + ' ' + v.variety_name);
+            const optionsVolumes = varieties.map(v => v.options_avg_volume);
+            const ratios = varieties.map(v => (v.options_to_futures_ratio * 100).toFixed(2));
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross' },
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    borderColor: '#e8ecf1',
+                    borderWidth: 1,
+                    textStyle: { color: '#1a1a1a' },
+                    formatter: function (params) {
+                        const idx = params[0].dataIndex;
+                        const v = varieties[idx];
+                        let html = `<div style="font-weight:600;margin-bottom:6px">${v.variety_name} (${v.variety_code.toUpperCase()})</div>`;
+                        html += `<div style="color:#2c5cc9">● 期权日均成交量: ${formatNumber(v.options_avg_volume)}</div>`;
+                        html += `<div style="color:#e0624d">● 期货日均成交量: ${formatNumber(v.futures_avg_volume)}</div>`;
+                        html += `<div style="color:#e0624d">● 期权/期货比: ${v.options_to_futures_ratio_pct.toFixed(2)}%</div>`;
+                        html += `<div style="color:#999;font-size:12px;margin-top:4px">${v.exchange_name}</div>`;
+                        return html;
+                    }
+                },
+                grid: {
+                    left: 60,
+                    right: 70,
+                    top: 50,
+                    bottom: 80,
+                    containLabel: true
+                },
+                legend: {
+                    data: ['期权日均成交量', '期权/期货比'],
+                    top: 10,
+                    textStyle: { color: '#666' }
+                },
+                dataZoom: [
+                    {
+                        type: 'slider',
+                        xAxisIndex: 0,
+                        start: 0,
+                        end: 100,
+                        height: 22,
+                        bottom: 15,
+                        borderColor: '#e8ecf1',
+                        fillerColor: 'rgba(44,92,201,0.12)',
+                        handleStyle: { color: '#2c5cc9' },
+                        textStyle: { color: '#999', fontSize: 11 },
+                        moveHandleStyle: { color: '#2c5cc9' }
+                    },
+                    {
+                        type: 'inside',
+                        xAxisIndex: 0
+                    }
+                ],
+                xAxis: {
+                    type: 'category',
+                    data: labels,
+                    axisLine: { lineStyle: { color: '#e8ecf1' } },
+                    axisLabel: {
+                        color: '#666',
+                        fontSize: 10,
+                        interval: 0,
+                        rotate: 30,
+                        margin: 6,
+                        width: 80,
+                        overflow: 'break',
+                        formatter: function(value) {
+                            // 格式：CODE Name，截断过长的名称
+                            if (value.length > 12) {
+                                return value.substring(0, 12) + '...';
+                            }
+                            return value;
+                        }
+                    },
+                    axisTick: { alignWithLabel: true }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: '期权日均成交量',
+                        position: 'left',
+                        axisLine: { show: true, lineStyle: { color: '#2c5cc9' } },
+                        axisLabel: { color: '#2c5cc9', formatter: '{value}' },
+                        splitLine: { lineStyle: { color: '#f0f2f5' } }
+                    },
+                    {
+                        type: 'value',
+                        name: '期权/期货比 (%)',
+                        position: 'right',
+                        axisLine: { show: true, lineStyle: { color: '#e0624d' } },
+                        axisLabel: { color: '#e0624d', formatter: '{value}%' },
+                        splitLine: { show: false }
+                    }
+                ],
+                series: [
+                    {
+                        name: '期权日均成交量',
+                        type: 'bar',
+                        data: optionsVolumes,
+                        barWidth: '55%',
+                        itemStyle: {
+                            borderRadius: [4, 4, 0, 0],
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: '#e0624d' },
+                                { offset: 1, color: '#f4a698' }
+                            ])
+                        }
+                    },
+                    {
+                        name: '期权/期货比',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: ratios,
+                        smooth: false,
+                        symbol: 'circle',
+                        symbolSize: 7,
+                        lineStyle: { color: '#e0624d', width: 2 },
+                        itemStyle: { color: '#e0624d', borderWidth: 2, borderColor: '#fff' }
+                    }
+                ]
+            };
+
+            chartInstance.setOption(option, true);
+        }
+
+        function renderOIExchangeCards(exchanges) {
+            const container = document.getElementById('exchangeOICards');
+            container.innerHTML = '';
+
+            const order = ['DCE', 'CZCE', 'SHFE', 'INE', 'GFEX'];
+            order.forEach(code => {
+                const ex = exchanges[code];
+                if (!ex) return;
+                const card = document.createElement('div');
+                card.className = 'card exchange-card';
+                card.innerHTML = `
+                    <div class="exchange-name">${ex.exchange_name}</div>
+                    <div class="exchange-stat">
+                        <div class="exchange-stat-label">期货持仓</div>
+                        <div class="exchange-stat-value futures">${formatNumber(ex.total_futures_avg_open_interest)}</div>
+                    </div>
+                    <div class="exchange-stat">
+                        <div class="exchange-stat-label">期权持仓</div>
+                        <div class="exchange-stat-value options">${formatNumber(ex.total_options_avg_open_interest)}</div>
+                    </div>
+                    <div class="exchange-count">${ex.variety_count}个品种</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderOIRatioCards(exchanges) {
+            const container = document.getElementById('oiRatioCards');
+            container.innerHTML = '';
+
+            const order = ['DCE', 'CZCE', 'SHFE', 'INE', 'GFEX'];
+            const colors = ['#2c5cc9', '#10b981', '#e0624d', '#f59e0b', '#8b5cf6'];
+            order.forEach((code, index) => {
+                const ex = exchanges[code];
+                if (!ex) return;
+                const card = document.createElement('div');
+                card.className = 'card ratio-card';
+                card.innerHTML = `
+                    <div class="ratio-value" style="color: ${colors[index % colors.length]}">${ex.oi_ratio_pct.toFixed(1)}%</div>
+                    <div class="ratio-label">${code}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderOIChart(varieties) {
+            const chartDom = document.getElementById('chartOI');
+            if (!chartOIInstance) {
+                chartOIInstance = echarts.init(chartDom);
+            }
+
+            // 按期权日均持仓量降序（已经是）
+            const labels = varieties.map(v => v.variety_code.toUpperCase() + ' ' + v.variety_name);
+            const optionsOI = varieties.map(v => v.options_avg_open_interest);
+            const oiRatios = varieties.map(v => (v.options_oi_to_futures_ratio * 100).toFixed(2));
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross' },
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    borderColor: '#e8ecf1',
+                    borderWidth: 1,
+                    textStyle: { color: '#1a1a1a' },
+                    formatter: function (params) {
+                        const idx = params[0].dataIndex;
+                        const v = varieties[idx];
+                        let html = `<div style="font-weight:600;margin-bottom:6px">${v.variety_name} (${v.variety_code.toUpperCase()})</div>`;
+                        html += `<div style="color:#2c5cc9">● 期权日均持仓量: ${formatNumber(v.options_avg_open_interest)}</div>`;
+                        html += `<div style="color:#e0624d">● 期货日均持仓量: ${formatNumber(v.futures_avg_open_interest)}</div>`;
+                        html += `<div style="color:#e0624d">● 期权/期货持仓比: ${v.options_oi_to_futures_ratio_pct.toFixed(2)}%</div>`;
+                        html += `<div style="color:#999;font-size:12px;margin-top:4px">${v.exchange_name}</div>`;
+                        return html;
+                    }
+                },
+                grid: {
+                    left: 60,
+                    right: 70,
+                    top: 50,
+                    bottom: 80,
+                    containLabel: true
+                },
+                legend: {
+                    data: ['期权日均持仓量', '期权/期货持仓比'],
+                    top: 10,
+                    textStyle: { color: '#666' }
+                },
+                dataZoom: [
+                    {
+                        type: 'slider',
+                        xAxisIndex: 0,
+                        start: 0,
+                        end: 100,
+                        height: 22,
+                        bottom: 15,
+                        borderColor: '#e8ecf1',
+                        fillerColor: 'rgba(44,92,201,0.12)',
+                        handleStyle: { color: '#2c5cc9' },
+                        textStyle: { color: '#999', fontSize: 11 },
+                        moveHandleStyle: { color: '#2c5cc9' }
+                    },
+                    {
+                        type: 'inside',
+                        xAxisIndex: 0
+                    }
+                ],
+                xAxis: {
+                    type: 'category',
+                    data: labels,
+                    axisLine: { lineStyle: { color: '#e8ecf1' } },
+                    axisLabel: {
+                        color: '#666',
+                        fontSize: 10,
+                        interval: 0,
+                        rotate: 30,
+                        margin: 6,
+                        width: 80,
+                        overflow: 'break',
+                        formatter: function(value) {
+                            if (value.length > 12) {
+                                return value.substring(0, 12) + '...';
+                            }
+                            return value;
+                        }
+                    },
+                    axisTick: { alignWithLabel: true }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: '期权日均持仓量',
+                        position: 'left',
+                        axisLine: { show: true, lineStyle: { color: '#2c5cc9' } },
+                        axisLabel: { color: '#2c5cc9', formatter: '{value}' },
+                        splitLine: { lineStyle: { color: '#f0f2f5' } }
+                    },
+                    {
+                        type: 'value',
+                        name: '期权/期货持仓比 (%)',
+                        position: 'right',
+                        axisLine: { show: true, lineStyle: { color: '#e0624d' } },
+                        axisLabel: { color: '#e0624d', formatter: '{value}%' },
+                        splitLine: { show: false }
+                    }
+                ],
+                series: [
+                    {
+                        name: '期权日均持仓量',
+                        type: 'bar',
+                        data: optionsOI,
+                        barWidth: '55%',
+                        itemStyle: {
+                            borderRadius: [4, 4, 0, 0],
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: '#2c5cc9' },
+                                { offset: 1, color: '#7ba3e8' }
+                            ])
+                        }
+                    },
+                    {
+                        name: '期权/期货持仓比',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: oiRatios,
+                        smooth: false,
+                        symbol: 'circle',
+                        symbolSize: 7,
+                        lineStyle: { color: '#e0624d', width: 2 },
+                        itemStyle: { color: '#e0624d', borderWidth: 2, borderColor: '#fff' }
+                    }
+                ]
+            };
+
+            chartOIInstance.setOption(option, true);
+        }
+
+        async function fetchData() {
+            const dateInput = document.getElementById('dateInput').value;
+            if (!dateInput) return;
+
+            showError('');
+            showLoading(true);
+
+            try {
+                const response = await fetch('data.json');
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || '数据获取失败');
+                }
+
+                const data = result.data;
+                const summary = data.summary;
+                const exchanges = data.exchanges;
+                const allVarieties = data.all_varieties;
+
+                // 更新信息栏
+                const daysStr = data.trading_days.map(d => `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`).join('、');
+                document.getElementById('infoBar').textContent = `统计区间：最近 ${data.days_count} 个交易日（${daysStr}）`;
+
+                // 总成交量
+                document.getElementById('totalFuturesVolume').textContent = formatNumber(summary.total_futures_avg_volume);
+                document.getElementById('totalOptionsVolume').textContent = formatNumber(summary.total_options_avg_volume);
+
+                // 总持仓量
+                document.getElementById('totalFuturesOI').textContent = formatNumber(summary.total_futures_avg_open_interest);
+                document.getElementById('totalOptionsOI').textContent = formatNumber(summary.total_options_avg_open_interest);
+
+                // 交易所卡片
+                renderExchangeCards(exchanges);
+                renderRatioCards(exchanges);
+                renderOIExchangeCards(exchanges);
+                renderOIRatioCards(exchanges);
+
+                // 图表
+                renderChart(allVarieties);
+                renderOIChart(data.all_varieties_by_oi);
+
+            } catch (err) {
+                console.error(err);
+                showError('数据获取失败：' + err.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        document.getElementById('analyzeBtn').addEventListener('click', fetchData);
+        document.getElementById('dateInput').addEventListener('change', fetchData);
+
+        window.addEventListener('resize', () => {
+            if (chartInstance) chartInstance.resize();
+            if (chartOIInstance) chartOIInstance.resize();
+        });
+
+        
+        // 页面加载时自动获取一次
+        fetchData();
+    </script>
+</body>
+</html>

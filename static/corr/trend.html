@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>价格 · 波动率走势 · 商品行情 × 隐含波动率</title>
+<script src="./libs/echarts.min.js"></script>
+<script src="./libs/xlsx.full.min.js"></script>
+<script src="./compute.js"></script>
+<script src="./names.js"></script>
+<link rel="stylesheet" href="./common.css" />
+<style>
+  /* 页面特有样式（共享基础样式见 common.css） */
+  .header-title h1 .icon {
+    width: 32px; height: 32px; background: linear-gradient(135deg, var(--color-primary), #0ea5e9);
+    border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+    color: white; font-size: 18px; flex-shrink: 0;
+  }
+  .stat-icon.cyan { background: #cffafe; }
+  .stat-icon.gray { background: #e2e8f0; }
+  .stat-icon.orange { background: #ffedd5; }
+  select { padding: 7px 9px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: #fff; color: var(--text-primary); font-size: 13px; min-width: 170px; cursor: pointer; }
+  .scatter-chart { width: 100%; height: 720px; }
+  .legend-bar { max-width: 1440px; margin: 16px auto 0; padding: 0 32px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .legend-inline { display: flex; gap: 18px; align-items: center; font-size: 12px; color: var(--text-muted); }
+  .swatch { display: inline-block; width: 14px; height: 4px; border-radius: 3px; vertical-align: middle; margin: 0 6px; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingText">正在加载 Corr.xlsx ...</div>
+</div>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="header-title">
+      <h1>
+        <span class="icon">&#128200;</span>
+        商品行情 × 隐含波动率 · 价格 · 波动率走势
+      </h1>
+      <div class="subtitle" id="subtitle">加载中...</div>
+    </div>
+  </div>
+  <nav class="topnav">
+    <a href="index.html">相关性气泡图</a>
+    <a href="trend.html" class="active">价格 · 波动率走势</a>
+  </nav>
+</header>
+
+<!-- Stats -->
+<div class="stats-bar" id="statsBar">
+  <div class="stat-card">
+    <div class="stat-icon blue">&#128202;</div>
+    <div><div class="stat-value" id="statTotal">-</div><div class="stat-label">品种总数</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon cyan">&#128337;</div>
+    <div><div class="stat-value" id="statDays">-</div><div class="stat-label">交易日数</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon gray">&#128197;</div>
+    <div><div class="stat-value" id="statRange" style="font-size:14px;line-height:1.3">-</div><div class="stat-label">数据区间</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange">&#127991;</div>
+    <div><div class="stat-value" id="statCurrent" style="font-size:16px">-</div><div class="stat-label">当前品种</div></div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar-card">
+  <div class="field">
+    <label>品种</label>
+    <select id="productSelect"></select>
+  </div>
+  <div class="field">
+    <label>&nbsp;</label>
+    <div class="row">
+      <button class="btn" id="reloadBtn">重新加载数据</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chart -->
+<div class="scatter-card">
+  <div class="scatter-card-inner">
+    <div class="scatter-head">
+      <div class="scatter-title">价格 与 波动率 走势 <span class="tag">左轴价格 · 右轴IV</span></div>
+      <div class="scatter-sub" id="trendSub">选择上方品种，查看其价格（左轴）与隐含波动率（右轴）的历史走势</div>
+    </div>
+    <div id="trend" class="scatter-chart"></div>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend-bar">
+  <span class="label">图例</span>
+  <span class="legend-inline">
+    <span><span class="swatch" style="background:#2563eb"></span>期货价格（左轴）</span>
+    <span><span class="swatch" style="background:#f97316"></span>隐含波动率 IV（右轴，%）</span>
+  </span>
+  <span class="legend-inline"><span>· 可拖动底部时间轴缩放</span></span>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<footer>数据来源：本地 Corr.xlsx（价格指数 / IV数据 两个工作表）· 计算与绘图均在浏览器本地完成 · 通过 start.bat 启动本地服务后自动加载</footer>
+
+<script>
+(function(){
+  "use strict";
+  // 品种中文名（CN / displayName）来自共享的 names.js（全局），此处不再重复定义
+  // 横轴年份标签相关的命名常量（替代魔法数字）
+  var YEAR_LABEL_GUARD = 12;  // 年初标签前后多少索引内抑制普通月日标签
+  var DATE_LABEL_STEP = 5;   // 普通月日标签的候选步长（交给 hideOverlap 疏排）
+
+  var state = { model:null, base:null, rawBuffer:null };
+  var trendChart, heartbeatTimer = null;
+  var $ = function(id){ return document.getElementById(id); };
+
+  function showToast(msg, type){
+    var t = $("toast"); t.textContent = msg;
+    t.className = "toast show " + (type || "");
+    setTimeout(function(){ t.className = "toast " + (type || ""); }, 3600);
+  }
+  function showLoading(text){
+    $("loadingText").textContent = text || "加载中...";
+    $("loadingOverlay").classList.remove("hidden");
+  }
+  function hideLoading(){ $("loadingOverlay").classList.add("hidden"); }
+
+  // ---- 自动加载数据：fetch 本地 Corr.xlsx（需经 start.bat 启动的本地服务）----
+  function loadData(){
+    showLoading("正在加载 Corr.xlsx ...");
+    fetch("./Corr.xlsx")
+      .then(function(r){
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return r.arrayBuffer();
+      })
+      .then(function(buf){
+        var u = new Uint8Array(buf);
+        state.rawBuffer = u;
+        // 走势页只需原始价格/IV 序列，窗口/模式不影响展示，用默认即可
+        state.model = CorrAnalyzer.parseFile(u, { window: 20, ivMode: "pct" });
+        $("subtitle").textContent = "共 " + state.model.products.length + " 个品种 · 数据区间 " +
+          state.model.minDate + " ~ " + state.model.maxDate;
+        hideLoading();
+        populateProducts();
+        renderTrend();
+        startHeartbeat();
+      })
+      .catch(function(err){
+        console.error(err);
+        hideLoading();
+        showToast("数据加载失败：" + err.message + "（请用项目目录下的 start.bat 启动本地服务后访问）", "error");
+        $("subtitle").textContent = "加载失败，请用项目目录下的 start.bat 启动本地服务";
+      });
+  }
+
+  function populateProducts(){
+    var sel = $("productSelect"); sel.innerHTML = "";
+    var list = state.model.products.slice().sort(function(a, b){
+      return a.base < b.base ? -1 : (a.base > b.base ? 1 : 0);
+    });
+    list.forEach(function(p){
+      var o = document.createElement("option");
+      o.value = p.base; o.textContent = displayName(p.base);
+      sel.appendChild(o);
+    });
+    state.base = list.length ? list[0].base : null;
+    sel.value = state.base || "";
+  }
+
+  function currentProduct(){
+    if(!state.model || !state.base) return null;
+    for(var i = 0; i < state.model.products.length; i++){
+      if(state.model.products[i].base === state.base) return state.model.products[i];
+    }
+    return null;
+  }
+
+  function renderTrend(){
+    var pr = currentProduct();
+    if(!pr){ trendChart.clear(); return; }
+
+    var dates = pr.D;
+    var price = pr.P;
+    var ivPct = pr.V.map(function(v){ return v == null ? null : v * 100; });
+
+    // 年份分界标记：每个自然年的首个交易日才显示年份，避免逐日重复年份导致杂乱
+    var yearStartMap = {};
+    var yearIdx = [];
+    dates.forEach(function(d, i){
+      var isStart = (i === 0) || (d.slice(0, 4) !== dates[i-1].slice(0, 4));
+      yearStartMap[d] = isStart;
+      if(isStart) yearIdx.push(i);
+    });
+    function nearYearStart(idx){
+      for(var k = 0; k < yearIdx.length; k++){
+        if(Math.abs(yearIdx[k] - idx) < YEAR_LABEL_GUARD) return true;
+      }
+      return false;
+    }
+
+    var pMin = Math.min.apply(null, price.filter(function(x){ return x != null; }));
+    var pMax = Math.max.apply(null, price.filter(function(x){ return x != null; }));
+    var iMin = Math.min.apply(null, ivPct.filter(function(x){ return x != null; }));
+    var iMax = Math.max.apply(null, ivPct.filter(function(x){ return x != null; }));
+
+    var option = {
+      backgroundColor: "transparent",
+      grid: { left: 70, right: 72, top: 48, bottom: 78 },
+      tooltip: {
+        trigger: "axis", backgroundColor: "rgba(30,41,59,0.95)", borderColor: "transparent",
+        padding: [10, 14], textStyle: { color: "#fff", fontSize: 12 }, extraCssText: "border-radius:8px;",
+        formatter: function(ps){
+          var s = '<b>' + ps[0].axisValue + '</b><br/>';
+          ps.forEach(function(p){
+            var isIv = p.seriesName.indexOf('波动率') >= 0;
+            var v = (p.value == null) ? '—' : (isIv ? p.value.toFixed(2) + '%' : p.value.toFixed(2));
+            s += p.marker + p.seriesName + '：<b>' + v + '</b><br/>';
+          });
+          return s;
+        }
+      },
+      legend: {
+        data: ["价格 " + pr.priceCode, "波动率 " + pr.ivCode],
+        top: 10, left: "center", itemWidth: 18, itemHeight: 10, textStyle: { color: "#475569", fontSize: 12.5 }
+      },
+      xAxis: {
+        type: "category", data: dates, boundaryGap: false,
+        axisLine: { lineStyle: { color: "#e2e8f0" } },
+        axisLabel: {
+          color: "#94a3b8", fontSize: 11, align: "center", hideOverlap: true,
+          // 强制每年首个交易日必显（含年份），其余月日标签交给 hideOverlap 自动疏排，
+          // 避免默认 interval 把后续年份标签也一并隐藏
+          interval: function(idx){
+            if(yearStartMap[dates[idx]]) return true;   // 年份标签必显
+            if(nearYearStart(idx)) return false;         // 让出年初附近空间
+            return idx % DATE_LABEL_STEP === 0;            // 普通月日候选，由 hideOverlap 去重
+          },
+          // 年份仅在每年首个交易日显示完整日期，其余仅显示月日，避免冗余
+          formatter: function(v){ return yearStartMap[v] ? v : v.slice(5); }
+        },
+        axisTick: { show: false }
+      },
+      yAxis: [
+        {
+          type: "value", name: "价格", position: "left", scale: true,
+          nameTextStyle: { color: "#2563eb", fontSize: 12 },
+          axisLine: { show: true, lineStyle: { color: "#2563eb" } },
+          axisLabel: { color: "#94a3b8", fontSize: 11 },
+          splitLine: { lineStyle: { color: "#f1f5f9", type: "dashed" } }
+        },
+        {
+          type: "value", name: "波动率 %", position: "right", scale: true,
+          nameTextStyle: { color: "#f97316", fontSize: 12 },
+          axisLine: { show: true, lineStyle: { color: "#f97316" } },
+          axisLabel: { color: "#94a3b8", fontSize: 11, formatter: "{value}%" },
+          splitLine: { show: false }
+        }
+      ],
+      dataZoom: [
+        {
+          type: "slider", xAxisIndex: 0, bottom: 12, height: 22,
+          borderColor: "#e2e8f0", backgroundColor: "#f8fafc", fillerColor: "rgba(37,99,235,0.10)",
+          handleSize: "80%", handleStyle: { color: "#2563eb", borderColor: "#2563eb" },
+          moveHandleStyle: { color: "#2563eb" }, textStyle: { color: "#94a3b8", fontSize: 10 },
+          dataBackground: { lineStyle: { color: "#cbd5e1" }, areaStyle: { color: "rgba(203,213,225,0.3)" } },
+          selectedDataBackground: { lineStyle: { color: "#2563eb" }, areaStyle: { color: "rgba(37,99,235,0.2)" } }
+        },
+        { type: "inside", xAxisIndex: 0 }
+      ],
+      series: [
+        {
+          name: "价格 " + pr.priceCode, type: "line", yAxisIndex: 0, data: price,
+          smooth: 0.3, symbol: "none", sampling: "lttb",
+          lineStyle: { width: 2, color: "#2563eb" }, itemStyle: { color: "#2563eb" },
+          areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: "#2563eb40" }, { offset: 1, color: "#2563eb05" }
+          ]) },
+          markLine: {
+            symbol: "none", precision: 2,
+            data: [
+              { yAxis: pMin, lineStyle: { color: "#10b981", type: "dashed", width: 1 }, label: { formatter: "最低 {c}", color: "#10b981", fontSize: 10, position: "insideStartTop" } },
+              { yAxis: (pMin + pMax) / 2, lineStyle: { color: "#64748b", type: "dashed", width: 1 }, label: { formatter: "均值 {c}", color: "#64748b", fontSize: 10, position: "insideStartTop" } },
+              { yAxis: pMax, lineStyle: { color: "#ef4444", type: "dashed", width: 1 }, label: { formatter: "最高 {c}", color: "#ef4444", fontSize: 10, position: "insideStartTop" } }
+            ]
+          },
+          markPoint: {
+            symbol: "circle", symbolSize: 8, data: [
+              { type: "max", name: "最高", itemStyle: { color: "#ef4444" }, label: { show: false } },
+              { type: "min", name: "最低", itemStyle: { color: "#10b981" }, label: { show: false } }
+            ]
+          }
+        },
+        {
+          name: "波动率 " + pr.ivCode, type: "line", yAxisIndex: 1, data: ivPct,
+          smooth: 0.3, symbol: "none", sampling: "lttb",
+          lineStyle: { width: 2, color: "#f97316" }, itemStyle: { color: "#f97316" },
+          markLine: {
+            symbol: "none", precision: 2,
+            data: [
+              { yAxis: iMin, lineStyle: { color: "#10b981", type: "dashed", width: 1 }, label: { formatter: "最低 {c}%", color: "#10b981", fontSize: 10, position: "insideEndTop" } },
+              { yAxis: (iMin + iMax) / 2, lineStyle: { color: "#64748b", type: "dashed", width: 1 }, label: { formatter: "均值 {c}%", color: "#64748b", fontSize: 10, position: "insideEndTop" } },
+              { yAxis: iMax, lineStyle: { color: "#ef4444", type: "dashed", width: 1 }, label: { formatter: "最高 {c}%", color: "#ef4444", fontSize: 10, position: "insideEndTop" } }
+            ]
+          }
+        }
+      ]
+    };
+    trendChart.setOption(option, true);
+
+    $("trendSub").textContent = displayName(pr.base) + " · " + pr.priceCode + " / " + pr.ivCode +
+      " · " + dates[0] + " ~ " + dates[dates.length - 1];
+    $("statTotal").textContent = state.model.products.length;
+    $("statDays").textContent = dates.length;
+    $("statRange").textContent = dates[0] + " ~ " + dates[dates.length - 1];
+    $("statCurrent").textContent = displayName(pr.base);
+  }
+
+  // ---- 事件绑定 ----
+  function bind(){
+    $("productSelect").addEventListener("change", function(e){ state.base = e.target.value; renderTrend(); });
+    $("reloadBtn").addEventListener("click", function(){ loadData(); });
+  }
+
+  // 心跳：页面加载即续命、每 5s 保活；仅当所有页面停发心跳超过
+  // HEARTBEAT_TIMEOUT(15s) 时服务器才自动释放端口。页面间导航会触发
+  // beforeunload，因此卸载时只发保活心跳、绝不主动关闭服务器。
+  function startHeartbeat(){
+    if(heartbeatTimer) return;
+    var ping = function(){ fetch("/api/heartbeat").catch(function(){}); };
+    ping();
+    heartbeatTimer = setInterval(ping, 5000);
+    window.addEventListener("beforeunload", function(){
+      fetch("/api/heartbeat", { keepalive: true }).catch(function(){});
+    });
+  }
+
+  function initCharts(){
+    trendChart = echarts.init($("trend"));
+    window.addEventListener("resize", function(){ trendChart.resize(); });
+  }
+
+  initCharts();
+  bind();
+  loadData();
+})();
+</script>
+</body>
+</html>
