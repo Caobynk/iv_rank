@@ -3,11 +3,12 @@ setlocal
 cd /d D:\WorkBuddy\GithubToPages
 
 REM ============================================================
-REM  update.bat - Commodity Options Dashboard static build + push
+REM  update.bat - Commodity Options Dashboard data fetch + build + push
 REM  1. ensure venv exists, create and install deps if missing
-REM  2. run build_site.py to regenerate static/ snapshots
-REM  3. git commit (only when static/ actually changed)
-REM  4. git push (token first + proxy fallback), Cloudflare auto-rebuild
+REM  2. fetch latest data from exchanges (update_data.py)
+REM  3. rebuild static site from fresh data (build_site.py)
+REM  4. git commit (only when static/ actually changed)
+REM  5. git push (token first + proxy fallback), Cloudflare auto-rebuild
 REM  Site: https://iv-rank.caobynk.workers.dev/
 REM ============================================================
 
@@ -17,7 +18,24 @@ if not exist venv\Scripts\python.exe (
   venv\Scripts\python.exe -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 )
 
-REM step 2: rebuild static site
+REM step 2: fetch latest data from exchanges
+echo.
+echo ==========================================================
+echo  [1/4] Fetching latest data from exchanges...
+echo ==========================================================
+venv\Scripts\python.exe update_data.py
+if errorlevel 1 (
+  echo.
+  echo [WARN] update_data.py reported failures.
+  echo Continuing with build using existing cache...
+  echo (remove the line above if you want to abort on fetch failure)
+)
+
+REM step 3: rebuild static site
+echo.
+echo ==========================================================
+echo  [2/4] Rebuilding static site...
+echo ==========================================================
 venv\Scripts\python.exe build_site.py
 if errorlevel 1 (
   echo build_site.py failed, abort
@@ -25,14 +43,22 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM step 3: commit new snapshots only if they actually changed
+REM step 4: commit new snapshots only if they actually changed
+echo.
+echo ==========================================================
+echo  [3/4] Committing changes...
+echo ==========================================================
 git add static
 git diff --cached --quiet
 if errorlevel 1 (
   git commit -m "data update %date%"
 )
 
-REM step 4: push local commits to origin
+REM step 5: push local commits to origin
+echo.
+echo ==========================================================
+echo  [4/4] Pushing to GitHub...
+echo ==========================================================
 REM priority: token (deploy_token.txt / GH_TOKEN), proxy (deploy_proxy.txt / GH_PROXY)
 set TOKEN=
 if exist deploy_token.txt (

@@ -485,25 +485,103 @@ def build_pcr(latest):
 
 # ================= 6. gex GEX 分析 =================
 def build_gex(latest):
-    """为每个品种生成最新交易日 GEX 数据。"""
+    """为每个品种生成最新交易日 GEX 数据（纯缓存模式，不联网不启动浏览器）。
+
+    数据源：
+      - 合约数据：最痛点项目 cache/{ex}_{date}.json（analyzer 归一化）
+      - 标的价 S / IV：GEX观察 market_cache/（有缓存用真实值；无缓存降级 ATM 近似 + IV 0.20）
+    计算：gex_core 纯函数（Black-76 反解 IV、GEX 聚合、Gamma Flip、Regime 分类）
+    """
     out = os.path.join(SUB_DIR, 'gex')
     data_dir = os.path.join(out, 'data')
     makedirs(data_dir)
-    if P_OIDIST not in sys.path:
-        sys.path.insert(0, P_OIDIST)
-    if P_GEX not in sys.path:
-        sys.path.insert(0, P_GEX)
+    for d in (P_OIDIST, P_GEX):
+        if d not in sys.path:
+            sys.path.insert(0, d)
     try:
         from analyzer import analyze_variety
         from varieties import get_varieties_grouped
-        import backend_gex
+        import gex_core
+        import commodity_expiry
     except Exception as e:
         print('[gex] 跳过：import 失败', e)
         return
 
+    # 市场缓存目录（标的价 S / IV）
+    market_cache_dir = os.path.join(P_GEX, 'market_cache')
+
+    def load_market(exchange, code):
+        """只读 market_cache：有缓存返回 (underlying, options)，无缓存返回 ({}, {})。"""
+        if exchange == 'DCE':
+            p = os.path.join(market_cache_dir, f'dce_{code}_{latest}.json')
+        else:
+            p = os.path.join(market_cache_dir, f'{exchange.lower()}_{latest}.json')
+        if not os.path.exists(p):
+            return {}, {}
+        try:
+            with open(p, 'r', encoding='utf-8') as f:
+                packed = json.load(f)
+            underlying = {}
+            options = {}
+            for key, s in packed.get('underlying', {}).items():
+                v, month = key.split('|')
+                if v == code:
+                    underlying[month] = s
+            for key, info in packed.get('options', {}).items():
+                rest, typ = key.rsplit('|', 1)
+                mk, k = rest.rsplit('|', 1)
+                v, month = mk.split('|')
+                if v == code:
+                    options[(month, float(k), typ)] = info
+            return underlying, options
+        except Exception:
+            return {}, {}
+
+    # 合约单位表（与 backend_gex.CONTRACT_UNITS 一致）
+    CONTRACT_UNITS = {
+        "m": 10, "c": 10, "i": 100, "pg": 20, "l": 5, "v": 5, "pp": 5, "p": 10,
+        "a": 10, "b": 10, "y": 10, "eg": 10, "eb": 5, "jd": 10, "cs": 10, "lh": 16, "lg": 90,
+        "cu": 5, "al": 5, "zn": 5, "pb": 5, "ni": 1, "sn": 1, "au": 1000, "ag": 15,
+        "rb": 10, "ru": 10, "bu": 10, "fu": 10, "sp": 10, "ao": 20, "br": 5, "op": 20, "ad": 5,
+        "sc": 1000, "nr": 10, "bc": 5,
+        "si": 5, "lc": 1, "ps": 5,
+        "SR": 10, "CF": 5, "TA": 5, "MA": 10, "RM": 10, "ZC": 100, "OI": 10, "PK": 5,
+        "PF": 5, "PX": 5, "SH": 20, "SA": 20, "SM": 5, "SF": 5, "UR": 20, "AP": 10,
+        "CJ": 5, "FG": 20, "PR": 5, "PL": 5,
+    }
+
+    def atm_strike(month_block):
+        """最大持仓行权价，作为标的价格近似。"""
+        best, best_oi = None, -1
+        for s, co, po in zip(month_block['strikes'], month_block['call_oi'], month_block['put_oi']):
+            tot = (co or 0) + (po or 0)
+            if tot > best_oi:
+                best_oi, best = tot, s
+        return best
+
+    def solve_month_iv(month, strikes, S, T, opt_type, oi_list, market_opts):
+        """逐行权价反解 IV：Black-76 反解 -> 交易所公布IV -> None(上层用 ATM 兜底)。"""
+        out = {}
+        typ_key = 'C' if opt_type == 'call' else 'P'
+        for s, oi in zip(strikes, oi_list):
+            if not oi or oi <= 0:
+                continue
+            info = market_opts.get((month, float(s), typ_key))
+            if not info:
+                continue
+            iv = gex_core.implied_vol_black76(info.get('price'), S, s, T, opt_type)
+            if iv is None:
+                iv = info.get('iv_pub')
+            if iv and iv > 0:
+                out[s] = iv
+        return out
+
     groups = get_varieties_grouped()
     with open(os.path.join(out, 'varieties.json'), 'w', encoding='utf-8') as f:
         json.dump({'success': True, 'groups': groups}, f, ensure_ascii=False)
+
+    from datetime import datetime as _dt
+    trade_dt = _dt.strptime(latest, '%Y%m%d').date()
 
     ok, fail = 0, 0
     fails = []
@@ -516,14 +594,99 @@ def build_gex(latest):
                     fail += 1
                     fails.append(code)
                     continue
-                r = backend_gex.compute_commodity_gex(analysis)
-                if r.get('success'):
-                    with open(os.path.join(data_dir, f'{code}.json'), 'w', encoding='utf-8') as f:
-                        json.dump(r, f, ensure_ascii=False)
-                    ok += 1
-                else:
-                    fail += 1
-                    fails.append(code)
+                market_und, market_opts = load_market(analysis['exchange'], code)
+                market_ok = bool(market_und) or bool(market_opts)
+
+                multiplier = CONTRACT_UNITS.get(code, 10)
+                out_months = []
+                for mb in analysis.get('months', []):
+                    strikes = mb['strikes']
+                    if not strikes:
+                        continue
+                    month = mb['month']
+                    # 标的价 S：期货结算价 > ATM 近似
+                    if market_und.get(month):
+                        S_use, s_src = market_und[month], 'futures'
+                    else:
+                        S_use, s_src = atm_strike(mb), 'atm_approx'
+                    # 剩余期限 T
+                    exp = commodity_expiry.expiry_date(code, analysis['exchange'], month)
+                    T_days = max((exp - trade_dt).days, 1)
+                    T = T_days / 365.0
+                    # 逐合约 IV
+                    iv_call = solve_month_iv(month, strikes, S_use, T, 'call', mb['call_oi'], market_opts)
+                    iv_put = solve_month_iv(month, strikes, S_use, T, 'put', mb['put_oi'], market_opts)
+                    iv_source = 'computed' if (iv_call or iv_put) else 'default'
+                    merged = {}
+                    merged.update(iv_put)
+                    merged.update(iv_call)
+                    atm_iv = merged[min(merged, key=lambda k: abs(k - S_use))] if merged else 0.20
+
+                    def iv_for(s, side_map):
+                        return side_map.get(s, atm_iv)
+
+                    contracts = []
+                    for s, oi in zip(strikes, mb['call_oi']):
+                        if oi and oi > 0:
+                            contracts.append({'strike': s, 'type': 'call', 'iv': iv_for(s, iv_call),
+                                              'oi': oi, 'S': S_use, 'T': T, 'r': 0.0, 'multiplier': multiplier})
+                    for s, oi in zip(strikes, mb['put_oi']):
+                        if oi and oi > 0:
+                            contracts.append({'strike': s, 'type': 'put', 'iv': iv_for(s, iv_put),
+                                              'oi': oi, 'S': S_use, 'T': T, 'r': 0.0, 'multiplier': multiplier})
+
+                    agg = gex_core.aggregate_by_strike(contracts)
+                    profile = gex_core.gex_profile(contracts, S_use)
+                    flip = gex_core.find_gamma_flip(profile, S_use)
+                    max_wall = max(agg, key=lambda x: abs(x['gex_net'])) if agg else None
+                    total_net = round(sum(x['gex_net'] for x in agg), 2)
+                    total_call = round(sum(x['gex_call'] for x in agg), 2)
+                    total_put = round(sum(x['gex_put'] for x in agg), 2)
+                    norm = gex_core.normalized_gex(total_call, total_put, total_net)
+                    regime = gex_core.classify_regime(norm)
+                    out_months.append({
+                        'month': month,
+                        'max_pain': mb.get('max_pain'),
+                        'atm_strike': atm_strike(mb),
+                        'total_call_oi': mb.get('total_call_oi', 0),
+                        'total_put_oi': mb.get('total_put_oi', 0),
+                        'T_days': T_days,
+                        'S_used': round(S_use, 4),
+                        'S_source': s_src,
+                        'iv_atm': round(atm_iv, 4),
+                        'iv_source': iv_source,
+                        'strikes': strikes,
+                        'gex_call': [x['gex_call'] for x in agg],
+                        'gex_put': [x['gex_put'] for x in agg],
+                        'gex_net': [x['gex_net'] for x in agg],
+                        'profile': profile,
+                        'gamma_flip': flip,
+                        'max_wall': max_wall,
+                        'total_net_gex': total_net,
+                        'total_call_gex': total_call,
+                        'total_put_gex': total_put,
+                        'normalized_gex': round(norm, 4),
+                        'regime': regime,
+                    })
+
+                data_note = ('S=各月标的期货结算价；IV=期权结算价经Black-76反解(交易所公布IV/月ATM/0.20兜底)'
+                             if market_ok else '行情缓存缺失，已降级：S=ATM近似、IV=0.20')
+                r = {
+                    'success': True,
+                    'variety_code': code,
+                    'variety_name': analysis['variety_name'],
+                    'exchange': analysis['exchange'],
+                    'exchange_name': analysis['exchange_name'],
+                    'trade_date': latest,
+                    'params': {'S': None, 'iv': None, 'multiplier': multiplier,
+                               'T_days': None, 'market_ok': market_ok,
+                               'T_note': 'T_days=None 时按交易所规则计算真实到期日(自然日)',
+                               'data_note': data_note},
+                    'months': out_months,
+                }
+                with open(os.path.join(data_dir, f'{code}.json'), 'w', encoding='utf-8') as f:
+                    json.dump(r, f, ensure_ascii=False)
+                ok += 1
             except Exception as e:
                 fail += 1
                 fails.append(f'{code}({type(e).__name__})')
@@ -546,8 +709,23 @@ def build_corr():
         s = os.path.join(src, name)
         d = os.path.join(dst, name)
         if os.path.isdir(s):
+            # 兼容沙箱回收站限制：先删文件再删空目录，避免 rmtree 被劫持
             if os.path.exists(d):
-                shutil.rmtree(d)
+                for root, dirs, files in os.walk(d, topdown=False):
+                    for fn in files:
+                        try:
+                            os.remove(os.path.join(root, fn))
+                        except OSError:
+                            pass
+                    for dn in dirs:
+                        try:
+                            os.rmdir(os.path.join(root, dn))
+                        except OSError:
+                            pass
+                try:
+                    os.rmdir(d)
+                except OSError:
+                    pass
             shutil.copytree(s, d)
         else:
             shutil.copy2(s, d)

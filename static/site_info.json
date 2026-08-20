@@ -1,14 +1,14 @@
 {
-  "build_time": "2026-08-20 20:07:32",
-  "latest_trade_date": "20260818",
+  "build_time": "2026-08-20 21:50:42",
+  "latest_trade_date": "20260820",
   "sub_pages": {
     "overview": {
       "name": "期权市场总览",
-      "latest": "20260818"
+      "latest": "20260820"
     },
     "oi_dist": {
       "name": "期权行情信息",
-      "latest": "20260818"
+      "latest": "20260820"
     },
     "vol_hist": {
       "name": "历史波动率估计",
@@ -24,7 +24,7 @@
     },
     "gex": {
       "name": "商品期权GEX分析",
-      "latest": "20260818"
+      "latest": "20260820"
     },
     "corr": {
       "name": "商品行情与波动率相关性",

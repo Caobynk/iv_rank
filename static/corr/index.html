@@ -465,9 +465,17 @@
     });
   }
 
-  // 静态部署版：无后端心跳，页面为纯静态快照
+  // 心跳：页面加载即续命、每 5s 保活；仅当所有页面停发心跳超过
+  // HEARTBEAT_TIMEOUT(15s) 时服务器才自动释放端口。页面间导航会触发
+  // beforeunload，因此卸载时只发保活心跳、绝不主动关闭服务器。
   function startHeartbeat(){
-    return;
+    if(heartbeatTimer) return;
+    var ping = function(){ fetch("/api/heartbeat").catch(function(){}); };
+    ping();
+    heartbeatTimer = setInterval(ping, 5000);
+    window.addEventListener("beforeunload", function(){
+      fetch("/api/heartbeat", { keepalive: true }).catch(function(){});
+    });
   }
 
   function initCharts(){
