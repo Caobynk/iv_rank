@@ -1,5 +1,5 @@
 {
-  "build_time": "2026-08-21 22:19:28",
+  "build_time": "2026-08-21 22:29:33",
   "latest_trade_date": "20260821",
   "sub_pages": {
     "overview": {
@@ -25,6 +25,10 @@
     "gex": {
       "name": "商品期权GEX分析",
       "latest": "20260821"
+    },
+    "fundamentals": {
+      "name": "商品基本面跟踪",
+      "latest": "ima 庞博知识库周报"
     },
     "corr": {
       "name": "商品行情与波动率相关性",

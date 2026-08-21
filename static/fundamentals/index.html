@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品基本面跟踪</title>
+<style>
+:root {
+  --bg: #f4f6fa;
+  --card: #ffffff;
+  --border: #e4e8f0;
+  --text: #1f2733;
+  --text-2: #5b6573;
+  --accent: #2563eb;
+  --accent-soft: #eaf1ff;
+  --gold: #b45309;
+  --black: #334155;
+  --energy: #b91c1c;
+  --metal: #7c3aed;
+  --agri: #0f8a5f;
+  --ship: #0369a1;
+  --red: #d3383a;
+  --green: #0f8a5f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg); color: var(--text); padding: 24px 28px 48px;
+}
+/* ===== 头部 ===== */
+.header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.header h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.header h1 .logo {
+  width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 16px; color: #fff;
+}
+.header .meta { font-size: 12px; color: var(--text-2); line-height: 1.7; text-align: right; }
+/* ===== 审核横幅 ===== */
+.audit-bar {
+  display: flex; align-items: center; gap: 10px; background: #ecfdf5; border: 1px solid #a7f3d0;
+  color: #065f46; font-size: 13px; padding: 10px 16px; border-radius: 10px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.audit-bar .badge { background: #10b981; color: #fff; font-size: 11px; padding: 2px 10px; border-radius: 20px; font-weight: 600; }
+.audit-bar .dim { color: #047857; }
+/* ===== 板块分组 ===== */
+.section-title { font-size: 14px; font-weight: 700; color: var(--text-2); margin: 26px 0 12px; letter-spacing: .5px; display: flex; align-items: center; gap: 8px; }
+.section-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+/* ===== 卡片 ===== */
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(16,24,40,.06); transition: box-shadow .18s, transform .18s;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.card:hover { box-shadow: 0 6px 18px rgba(16,24,40,.10); transform: translateY(-2px); }
+.card .card-head { display: flex; align-items: center; gap: 10px; }
+.card .card-head .name { font-size: 16px; font-weight: 700; }
+.card .card-head .tag { font-size: 11px; color: #fff; padding: 2px 10px; border-radius: 20px; font-weight: 600; letter-spacing: .5px; }
+.tag.gold { background: var(--gold); } .tag.black { background: var(--black); } .tag.energy { background: var(--energy); }
+.tag.metal { background: var(--metal); } .tag.agri { background: var(--agri); } .tag.ship { background: var(--ship); }
+.card .card-head .src { margin-left: auto; font-size: 11px; color: #9aa7bd; white-space: nowrap; }
+.card .block { font-size: 13px; line-height: 1.75; color: var(--text-2); }
+.card .block b { color: var(--text); font-weight: 600; font-size: 12.5px; display: block; margin-bottom: 2px; }
+.card .block b::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.card .block.fund b::before { background: #3b82f6; }
+.card .block.outlook b::before { background: #10b981; }
+.card .block.risk b::before { background: #f59e0b; }
+.card .block ul { padding-left: 4px; list-style: none; }
+.card .block li { position: relative; padding-left: 12px; }
+.card .block li::before { content: "·"; position: absolute; left: 0; color: #b6c2d9; }
+/* 页脚 */
+.footer { margin-top: 28px; font-size: 12px; color: #9aa7bd; text-align: center; line-height: 1.8; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span class="logo">📋</span> 商品基本面跟踪</h1>
+  <div class="meta">
+    数据源：ima 知识库 · 庞博大宗商品共享知识库<br>报告期：2026-08-14 ~ 2026-08-21 · 生成于 2026-08-21
+  </div>
+</div>
+
+<div class="audit-bar">
+  <span class="badge">报告期审核通过</span>
+  <span>庞博知识库最近一周（8/14~8/21）共收录研究报告 <b>20+</b> 份，均已核实发布于 <b>2026-08-20 / 2026-08-21</b>，处于最近一周窗口内 ✓</span>
+  <span class="dim">· 摘要来源：中信期货研究系列日报/专题</span>
+</div>
+
+<div class="section-title">贵金属</div>
+<div class="grid">
+  <div class="card">
+    <div class="card-head"><span class="name">黄金 / 白银</span><span class="tag gold">贵金属</span><span class="src">日报 08-20/21</span></div>
+    <div class="block fund"><b>基本面</b><ul>
+      <li>FOMC 纪要鹰派不及预期，仅"数名"委员支持 7 月加息，但"许多"委员仍担忧通胀黏性</li>
+      <li>美财政部意外扩大 10-30 年期长债回购规模，长端收益率快速回落、美元走弱</li>
+      <li>美国公共债务突破 40 万亿美元，中期财政信用担忧升温</li>
+    </ul></div>
+    <div class="block outlook"><b>行情展望</b><ul>
+      <li>金价一度突破 4500 美元（日内 +3%+）、白银 +4%；短期持有机会成本下降与财政信用担忧共振，高位偏强、博弈加剧</li>
+    </ul></div>
+    <div class="block risk"><b>风险提示</b><ul>
+      <li>能源通胀黏性与美联储政策分歧构成制约；金价高位波动放大，追高需谨慎</li>
+    </ul></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="name">铂金 / 钯金</span><span class="tag gold">贵金属</span><span class="src">有色日报 08-21</span></div>
+    <div class="block fund"><b>基本面</b><ul>
+      <li>7 月美国 CPI/PPI 延续回落、零售月率负增长，加息预期降温</li>
+      <li>利率端预期变动主导贵金属定价；广期所铂仓单 5,409 手、钯 5,481 手</li>
+    </ul></div>
+    <div class="block outlook"><b>行情展望</b><ul>
+      <li>铂 443.65 元/克（+4.63%）、钯 315.65 元/克（+2.22%），偏强运行，持续关注利率端预期</li>
+    </ul></div>
+    <div class="block risk"><b>风险提示</b><ul>
+      <li>利率预期反复；汽车尾气催化剂需求（钯）走弱风险</li>
+    </ul></div>
+  </div>
+</div>
+
+<div class="section-title">黑色系</div>
+<div class="grid">
+  <div class="card">
+    <div class="card-head"><span class="name">焦煤 / 焦炭</span><span class="tag black">黑色</span><span class="src">日报 08-20/21</span></div>
+    <div class="block fund"><b>基本面</b><ul>
+      <li>焦煤供应紧缺：山西安监持续严格、停产产能维持高位、蒙煤通关低位扰动，现货价格涨势迅猛</li>
+      <li>焦炭在成本推动 + 亏损减产下供需边际好转，首轮提涨即将落地</li>
+    </ul></div>
+    <div class="block outlook"><b>行情展望</b><ul>
+      <li>焦煤强势引领板块上行，是支撑黑色系成本的核心变量；产业链呈"原料强、成材弱"分化</li>
+    </ul></div>
+    <div class="block risk"><b>风险提示</b><ul>
+      <li>终端需求季节性回暖不明显，压制上方空间；安监/通关政策边际放松</li>
+    </ul></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="name">钢材 / 铁矿</span><span class="tag black">黑色</span><span class="src">日报 08-20/21 + 策略</span></div>
+    <div class="block fund"><b>基本面</b><ul>
+      <li>钢材淡季需求未显著回暖，制造业补库与建材季节性回升预期存在；铁水产量回升、钢厂亏损扩大</li>
+      <li>铁矿到港波动剧烈但短期供应压力不突出，铁水负反馈预期证伪；废钢受极端天气影响到货减少</li>
+      <li>热卷基本面优于螺纹，短期库存压力尚可</li>
+    </ul></div>
+    <div class="block outlook"><b>行情展望</b><ul>
+      <li>螺纹处于 3000 元/吨成本关口，预计全年 2900-3300 元/吨箱体弱势震荡，"低趋势、高拉锯"；期权 IV 低位、PCR 高位回落</li>
+    </ul></div>
+    <div class="block risk"><b>风险提示</b><ul>
+      <li>钢厂亏损扩大压制复产；终端需求超预期走弱；铁矿到港大幅回升</li>
+    </ul></div>
+  </div>
+</div>
+
+<div class="section-title">能源化工</div>
+<div class="grid">
+  <div class="card">
+    <div class="card-head"><span class="name">原油 / 成品油</span><span class="tag energy">能源</span><span class="src">日报 08-20/21</span></div>
+    <div class="block fund"><b>基本面</b><ul>
+      <li>中东地缘未见缓和：美伊持续对抗、阿联酋遭弹道导弹袭击，美国宣布切断与伊朗一切经济联系</li>
+      <li>原油升至近一个月高位；美国柴油裂解价差超 100 美元/桶创历史纪录，成品油强于原油</li>
+      <li>中国炼厂毛利好转，开工环比提升</li>
+    </ul></div>
+    <div class="block outlook"><b>行情展望</b><ul>
+      <li>海峡低通行量格局下原油延续偏强，欧洲天然气亦受支撑；地缘溢价短期难消退</li>
+    </ul></div>
+    <div class="block risk"><b>风险提示</b><ul>
+      <li>地缘缓和油价快速回落；全球需求走弱；海峡通行恢复</li>
+    </ul></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="name">甲醇 / 聚酯 / 烯烃</span><span class="tag energy">化工</span><span class="src">日报 08-20/21</span></div>
+    <div class="block fund"><b>基本面</b><ul>
+      <li>能化品周度产量普遍下滑：PX -24.1%、液化气 -20.1%、汽油 -15.0%、柴油 -12.8%；甲醇产量环比大幅下降</li>
+      <li>伊朗货源进口减量，MTO 工厂采购转向国产煤制 + 非伊进口的多元化渠道</li>
+      <li>美国柴油裂解价差创纪录高位，化工远月合约补涨</li>
+    </ul></div>
+    <div class="block outlook"><b>行情展望</b><ul>
+      <li>供应收缩支撑甲醇等品种；远月补涨或预示价格将回归震荡，追高谨慎</li>
+    </ul></div>
+    <div class="block risk"><b>风险提示</b><ul>
+      <li>下游聚酯/瓶片需求疲弱；地缘缓和后进口货源恢复冲击</li>
+    </ul></div>
+  </div>
+</div>
+
+<div class="section-title">有色金属</div>
+<div class="grid">
+  <div class="card">
+    <div class="card-head"><span class="name">基本金属（铜铝锌等）</span><span class="tag metal">有色</span><span class="src">有色日报 08-21</span></div>
+    <div class="block fund"><b>基本面</b><ul>
+      <li>美元指数延续趋弱 + 美国财政部加大长债回购，对金属价格形成提振</li>
+      <li>原料端延续偏紧；冶炼端上周产量环比略升，供应端支撑仍在</li>
+      <li>终端略偏弱，但跌价后下游消费买盘再度活跃</li>
+    </ul></div>
+    <div class="block outlook"><b>行情展望</b><ul>
+      <li>美元趋弱 + 供应支撑下，基本金属或有望震荡止跌</li>
+    </ul></div>
+    <div class="block risk"><b>风险提示</b><ul>
+      <li>美元指数反弹；终端需求超预期走弱</li>
+    </ul></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="name">碳酸锂 / 工业硅 / 多晶硅</span><span class="tag metal">新能源金属</span><span class="src">有色日报 08-21</span></div>
+    <div class="block fund"><b>基本面</b><ul>
+      <li>光伏装机偏弱且预期悲观，压制硅产业链需求；新能源汽车销量改善 + 储能高增长支撑碳酸锂现实需求</li>
+      <li>供应阶段性扰动推升工业硅；供需过剩预期限制双硅上方高度</li>
+      <li>电池消费税对远期消费有负面影响</li>
+    </ul></div>
+    <div class="block outlook"><b>行情展望</b><ul>
+      <li>投资者聚焦现实偏紧供需、淡化远期消费担忧，碳酸锂震荡回升；双硅上方受限</li>
+    </ul></div>
+    <div class="block risk"><b>风险提示</b><ul>
+      <li>电池消费税政策；光伏装机继续走弱；过剩兑现压力</li>
+    </ul></div>
+  </div>
+</div>
+
+<div class="section-title">农产品 / 油脂 / 航运</div>
+<div class="grid">
+  <div class="card">
+    <div class="card-head"><span class="name">棕榈油（油脂）</span><span class="tag agri">油脂</span><span class="src">专题 08-20</span></div>
+    <div class="block fund"><b>基本面</b><ul>
+      <li>印尼进入旱季火情上行周期，年内累计森林过火面积超 20.2 万公顷，热异常集中于苏门答腊与加里曼丹棕榈油产区</li>
+      <li>超强东部型厄尔尼诺 + 正 IOD 背景下，印尼干旱与森林火灾风险升级</li>
+    </ul></div>
+    <div class="block outlook"><b>行情展望</b><ul>
+      <li>棕榈油减产风险升温，市场情绪扰动加大；历史上火情对产量与价格的传导值得跟踪</li>
+    </ul></div>
+    <div class="block risk"><b>风险提示</b><ul>
+      <li>火情受控减产不及预期；印尼出口政策（DMO）；豆油/菜油替代</li>
+    </ul></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="name">生猪 / 豆粕 / 棉花 / 白糖 / 橡胶</span><span class="tag agri">农产品</span><span class="src">农业日报 08-21</span></div>
+    <div class="block fund"><b>基本面</b><ul>
+      <li>生猪：高价抑制需求，猪价上涨后回调</li>
+      <li>豆粕：高位震荡偏强，等待田间巡查单产预估</li>
+      <li>棉花：天气担忧推动内外盘联袂上涨</li>
+      <li>白糖：印度开放进口、巴西估产下调，外强内震荡</li>
+      <li>橡胶：盘面炒作情绪较浓；合成橡胶日内跳水但上行逻辑未变</li>
+    </ul></div>
+    <div class="block outlook"><b>行情展望</b><ul>
+      <li>农产品整体受天气与单产预期主导，结构分化：油脂/棉花偏强，生猪高价回调，白糖外强内弱</li>
+    </ul></div>
+    <div class="block risk"><b>风险提示</b><ul>
+      <li>天气/单产超预期；进口政策与汇率变动；生猪出栏节奏</li>
+    </ul></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="name">航运（欧线集运）</span><span class="tag ship">航运</span><span class="src">航运日报 08-20</span></div>
+    <div class="block fund"><b>基本面</b><ul>
+      <li>OOCL 9 月上旬线上降至 4300 美元/FEU；ONE 上调 EFS 紧急燃油附加费 45 美元/TEU</li>
+      <li>欧线 10 合约冲高回落收于 1740 点（-0.11%），增仓 312 手；船司 8 月末现货揽货，供应链前期扰动仍存</li>
+    </ul></div>
+    <div class="block outlook"><b>行情展望</b><ul>
+      <li>总体震荡：线下价格 3800-4050 区间运行，价格博弈围绕地缘与运力供给</li>
+    </ul></div>
+    <div class="block risk"><b>风险提示</b><ul>
+      <li>地缘扰动反复；运力供给恢复；需求淡季回落</li>
+    </ul></div>
+  </div>
+</div>
+
+<div class="footer">
+  内容来源：ima 知识库「庞博大宗商品共享知识库」最近一周报告（中信期货研究系列），已核验报告日期均在 2026-08-14~08-21 窗口内<br>
+  本页仅作基本面信息梳理，不构成任何投资建议 · 市场有风险，投资需谨慎 · 页面为静态快照，每周更新
+</div>
+
+</body>
+</html>

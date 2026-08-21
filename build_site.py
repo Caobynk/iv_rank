@@ -856,6 +856,7 @@ def build_site_info(latest):
             'iv_rank': {'name': '隐含波动率分析', 'latest': 'api/info.json'},
             'pcr': {'name': '商品期权PCR跟踪', 'latest': 'tables'},
             'gex': {'name': '商品期权GEX分析', 'latest': latest},
+            'fundamentals': {'name': '商品基本面跟踪', 'latest': 'ima 庞博知识库周报'},
             'corr': {'name': '商品行情与波动率相关性', 'latest': 'Corr.xlsx'},
         },
     }
