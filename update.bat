@@ -29,7 +29,7 @@ REM step 1: ensure venv exists, create and install deps if missing
 if not exist venv\Scripts\python.exe (
   echo.
   echo ==========================================================
-  echo  [1/5] Creating venv + installing dependencies (first run)...
+  echo  [1/5] Creating venv + installing dependencies on first run...
   echo ==========================================================
   "%PYLAUNCH%" -m venv venv
   venv\Scripts\python.exe -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
@@ -54,7 +54,7 @@ if errorlevel 1 (
   echo.
   echo  [WARN] update_data.py reported failures.
   echo  Continuing with build using existing cache...
-  echo  (some varieties may fall back to older data)
+  echo  some varieties may fall back to older data
 )
 
 REM step 3: rebuild static site

@@ -10,9 +10,12 @@
 import os
 import re
 
+from build_site import detect_latest_date
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(BASE, 'static', 'sub')
-LATEST = '2026-08-18'
+_L = detect_latest_date()  # YYYYMMDD，从各子服务缓存探测最新共同交易日
+LATEST = f'{_L[:4]}-{_L[4:6]}-{_L[6:]}'  # YYYY-MM-DD
 
 # ---------- 工具 ----------
 def read(p):
@@ -148,9 +151,9 @@ def gen_gex():
     h = h.replace(old_query, new_query)
     # 静态版：交易日固定为最新缓存日，隐藏日期选择
     h = h.replace("document.getElementById('tradeDate').value = defaultYesterday();",
-                  "document.getElementById('tradeDate').value = '2026-08-18';")
+                  f"document.getElementById('tradeDate').value = '{LATEST}';")
     h = h.replace('<div class="field">交易日<input type="date" id="tradeDate"></div>',
-                  '<div class="field">交易日<input type="date" id="tradeDate" value="2026-08-18" disabled></div>')
+                  f'<div class="field">交易日<input type="date" id="tradeDate" value="{LATEST}" disabled></div>')
     # 删除心跳/关闭
     h = re.sub(r"\nfunction heartbeat\(\) \{.*?\n\}\n", "\n", h, flags=re.S)
     h = re.sub(r"\nwindow\.addEventListener\('beforeunload', \(\) => \{\n\s*try \{ navigator\.sendBeacon\('/api/shutdown'\); \} catch \(e\) \{\}\n\}\);\n", "\n", h, flags=re.S)

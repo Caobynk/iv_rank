@@ -752,6 +752,34 @@ def build_site_info(latest):
     print('[site_info] 生成 site_info.json')
 
 
+# ================= 8.5 刷新各子页 index.html 写死的快照日期 =================
+def refresh_html_dates(latest):
+    """把各子页 index.html 中写死的日期字面量统一替换为最新交易日。
+
+    静态版页面为单日快照（date input disabled），日期在静态化时写死，
+    若构建时不同步更新会显示过期日期（如数据已到 8/21 页面仍显示 8/18）。
+    用正则替换所有 YYYY-MM-DD 字面量（当前各页内仅快照日期语义）。
+    """
+    import re
+    dash = f'{latest[:4]}-{latest[4:6]}-{latest[6:]}'
+    pat = re.compile(r'\d{4}-\d{2}-\d{2}')
+    changed = 0
+    for name in ('overview', 'oi_dist', 'vol_hist', 'pcr', 'gex', 'iv_rank'):
+        p = os.path.join(SUB_DIR, name, 'index.html')
+        if not os.path.isfile(p):
+            continue
+        with open(p, 'r', encoding='utf-8') as f:
+            s = f.read()
+        s2 = pat.sub(dash, s)
+        if s2 != s:
+            with open(p, 'w', encoding='utf-8') as f:
+                f.write(s2)
+            changed += 1
+            print(f'[html] {name}/index.html 日期字面量 -> {dash}')
+    if not changed:
+        print(f'[html] 各页日期均已为最新 {dash}，无需更新')
+
+
 def main():
     latest = detect_latest_date()
     print(f'=== 商品期权信息汇总面板 静态构建 ===')
@@ -767,6 +795,7 @@ def main():
     build_gex(latest)
     build_corr()
     build_site_info(latest)
+    refresh_html_dates(latest)
     print('=== 构建完成 ===')
 
 
