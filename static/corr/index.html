@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>商品行情 × 隐含波动率 · 相关性分析</title>
 <script src="./libs/echarts.min.js"></script>
-<script src="./libs/xlsx.full.min.js"></script>
 <script src="./compute.js"></script>
 <script src="./names.js"></script>
 <link rel="stylesheet" href="./common.css" />
@@ -44,7 +43,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="loading-spinner"></div>
-  <div class="loading-text" id="loadingText">正在加载 Corr.xlsx ...</div>
+  <div class="loading-text" id="loadingText">正在加载数据 ...</div>
 </div>
 
 <header class="header">
@@ -158,7 +157,7 @@
 
 <div class="toast" id="toast"></div>
 
-<footer>数据来源：本地 Corr.xlsx（价格指数 / IV数据 两个工作表）· 计算与绘图均在浏览器本地完成 · 通过 start.bat 启动本地服务后自动加载</footer>
+<footer>数据来源：Corr.xlsx（价格指数 / IV数据 两个工作表）· 构建期静态化 data.json，计算与绘图均在浏览器本地完成</footer>
 
 <script>
 (function(){
@@ -171,8 +170,8 @@
   // IV 色阶停靠点：低→高 = 绿→黄绿→黄→橙→红（对齐 IV_Rank 绘图风格）
   var IV_STOPS = [[16,185,129],[132,204,22],[234,179,8],[249,115,22],[239,68,68]];
 
-  var state = { model:null, date:null, threshold:0.5, showAll:false, window:20, ivMode:"pct", rawBuffer:null };
-  var bubbleChart, secChart, heartbeatTimer = null;
+  var state = { model:null, date:null, threshold:0.5, showAll:false, window:20, ivMode:"pct", priceMat:null, ivMat:null };
+  var bubbleChart, secChart;
 
   var $ = function(id){ return document.getElementById(id); };
 
@@ -189,29 +188,28 @@
 
   // ---- 自动加载数据：fetch 本地 Corr.xlsx（需经 start.bat 启动的本地服务）----
   function loadData(){
-    showLoading("正在加载 Corr.xlsx ...");
-    fetch("./Corr.xlsx")
+    showLoading("正在加载数据 ...");
+    fetch("./data.json")
       .then(function(r){
         if(!r.ok) throw new Error("HTTP " + r.status);
-        return r.arrayBuffer();
+        return r.json();
       })
-      .then(function(buf){
-        var u = new Uint8Array(buf);
-        state.rawBuffer = u;
-        state.model = CorrAnalyzer.parseFile(u, { window:state.window, ivMode:state.ivMode });
+      .then(function(j){
+        state.priceMat = j.price;
+        state.ivMat = j.iv;
+        state.model = CorrAnalyzer.parseWorkbookData(j.price, j.iv, { window:state.window, ivMode:state.ivMode });
         state.date = state.model.maxDate;
         $("subtitle").textContent = "共 " + state.model.products.length + " 个品种 · 数据区间 " +
           state.model.minDate + " ~ " + state.model.maxDate;
         hideLoading();
         populateDates();
         renderAll();
-        startHeartbeat();
       })
       .catch(function(err){
         console.error(err);
         hideLoading();
-        showToast("数据加载失败：" + err.message + "（请用项目目录下的 start.bat 启动本地服务后访问）", "error");
-        $("subtitle").textContent = "加载失败，请用项目目录下的 start.bat 启动本地服务";
+        showToast("数据加载失败：" + err.message + "（请确认 data.json 已生成）", "error");
+        $("subtitle").textContent = "加载失败，请确认 data.json 已生成";
       });
   }
 
@@ -437,8 +435,8 @@
   }
 
   function reparse(){
-    if(!state.rawBuffer) return;
-    state.model = CorrAnalyzer.parseFile(state.rawBuffer, { window: state.window, ivMode: state.ivMode });
+    if(!state.priceMat) return;
+    state.model = CorrAnalyzer.parseWorkbookData(state.priceMat, state.ivMat, { window: state.window, ivMode: state.ivMode });
     state.date = state.model.maxDate;
     populateDates();
     renderAll();
@@ -465,18 +463,7 @@
     });
   }
 
-  // 心跳：页面加载即续命、每 5s 保活；仅当所有页面停发心跳超过
-  // HEARTBEAT_TIMEOUT(15s) 时服务器才自动释放端口。页面间导航会触发
-  // beforeunload，因此卸载时只发保活心跳、绝不主动关闭服务器。
-  function startHeartbeat(){
-    if(heartbeatTimer) return;
-    var ping = function(){ fetch("/api/heartbeat").catch(function(){}); };
-    ping();
-    heartbeatTimer = setInterval(ping, 5000);
-    window.addEventListener("beforeunload", function(){
-      fetch("/api/heartbeat", { keepalive: true }).catch(function(){});
-    });
-  }
+  // 静态版/本地版均无需心跳（无后端保活逻辑）
 
   function initCharts(){
     bubbleChart = echarts.init($("bubble"));

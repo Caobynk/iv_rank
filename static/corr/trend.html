@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>价格 · 波动率走势 · 商品行情 × 隐含波动率</title>
 <script src="./libs/echarts.min.js"></script>
-<script src="./libs/xlsx.full.min.js"></script>
 <script src="./compute.js"></script>
 <script src="./names.js"></script>
 <link rel="stylesheet" href="./common.css" />
@@ -30,7 +29,7 @@
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="loading-spinner"></div>
-  <div class="loading-text" id="loadingText">正在加载 Corr.xlsx ...</div>
+  <div class="loading-text" id="loadingText">正在加载数据 ...</div>
 </div>
 
 <header class="header">
@@ -106,7 +105,7 @@
 
 <div class="toast" id="toast"></div>
 
-<footer>数据来源：本地 Corr.xlsx（价格指数 / IV数据 两个工作表）· 计算与绘图均在浏览器本地完成 · 通过 start.bat 启动本地服务后自动加载</footer>
+<footer>数据来源：Corr.xlsx（价格指数 / IV数据 两个工作表）· 构建期静态化 data.json，计算与绘图均在浏览器本地完成</footer>
 
 <script>
 (function(){
@@ -116,8 +115,8 @@
   var YEAR_LABEL_GUARD = 12;  // 年初标签前后多少索引内抑制普通月日标签
   var DATE_LABEL_STEP = 5;   // 普通月日标签的候选步长（交给 hideOverlap 疏排）
 
-  var state = { model:null, base:null, rawBuffer:null };
-  var trendChart, heartbeatTimer = null;
+  var state = { model:null, base:null, priceMat:null, ivMat:null };
+  var trendChart;
   var $ = function(id){ return document.getElementById(id); };
 
   function showToast(msg, type){
@@ -131,25 +130,24 @@
   }
   function hideLoading(){ $("loadingOverlay").classList.add("hidden"); }
 
-  // ---- 自动加载数据：fetch 本地 Corr.xlsx（需经 start.bat 启动的本地服务）----
+  // ---- 自动加载数据：fetch 构建期静态化的 data.json（不再依赖浏览器解析 xlsx）----
   function loadData(){
-    showLoading("正在加载 Corr.xlsx ...");
-    fetch("./Corr.xlsx")
+    showLoading("正在加载数据 ...");
+    fetch("./data.json")
       .then(function(r){
         if(!r.ok) throw new Error("HTTP " + r.status);
-        return r.arrayBuffer();
+        return r.json();
       })
-      .then(function(buf){
-        var u = new Uint8Array(buf);
-        state.rawBuffer = u;
+      .then(function(j){
+        state.priceMat = j.price;
+        state.ivMat = j.iv;
         // 走势页只需原始价格/IV 序列，窗口/模式不影响展示，用默认即可
-        state.model = CorrAnalyzer.parseFile(u, { window: 20, ivMode: "pct" });
+        state.model = CorrAnalyzer.parseWorkbookData(j.price, j.iv, { window: 20, ivMode: "pct" });
         $("subtitle").textContent = "共 " + state.model.products.length + " 个品种 · 数据区间 " +
           state.model.minDate + " ~ " + state.model.maxDate;
         hideLoading();
         populateProducts();
         renderTrend();
-        startHeartbeat();
       })
       .catch(function(err){
         console.error(err);
@@ -327,18 +325,7 @@
     $("reloadBtn").addEventListener("click", function(){ loadData(); });
   }
 
-  // 心跳：页面加载即续命、每 5s 保活；仅当所有页面停发心跳超过
-  // HEARTBEAT_TIMEOUT(15s) 时服务器才自动释放端口。页面间导航会触发
-  // beforeunload，因此卸载时只发保活心跳、绝不主动关闭服务器。
-  function startHeartbeat(){
-    if(heartbeatTimer) return;
-    var ping = function(){ fetch("/api/heartbeat").catch(function(){}); };
-    ping();
-    heartbeatTimer = setInterval(ping, 5000);
-    window.addEventListener("beforeunload", function(){
-      fetch("/api/heartbeat", { keepalive: true }).catch(function(){});
-    });
-  }
+  // 静态版/本地版均无需心跳（无后端保活逻辑）
 
   function initCharts(){
     trendChart = echarts.init($("trend"));

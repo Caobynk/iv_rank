@@ -693,9 +693,13 @@ def build_gex(latest):
     print(f"[gex] 生成 {ok} 个品种（失败 {fail}）{fails[:8]}")
 
 
-# ================= 7. corr 相关性（纯静态复制） =================
+# ================= 7. corr 相关性（静态复制 + xlsx 静态化） =================
 def build_corr():
-    """相关性页为纯静态（浏览器端 SheetJS 读 xlsx），整体复制到 static/corr/。"""
+    """复制相关性页到 static/corr/，并把 Corr.xlsx 解析为 data.json。
+
+    静态版不再依赖浏览器加载 xlsx（fetch 失败/公式缓存/列名尾空格等坑），
+    改为构建时用 openpyxl 提取价格/IV 两个矩阵，前端直接 fetch data.json。
+    """
     src = P_CORR
     dst = os.path.join(STATIC_DIR, 'corr')
     if not os.path.isdir(src):
@@ -729,7 +733,115 @@ def build_corr():
             shutil.copytree(s, d)
         else:
             shutil.copy2(s, d)
+    # 静态版前端不再需要浏览器端 SheetJS（改 fetch data.json）
+    xlsx_lib = os.path.join(dst, 'libs', 'xlsx.full.min.js')
+    if os.path.isfile(xlsx_lib):
+        try:
+            os.remove(xlsx_lib)
+        except OSError:
+            pass
     print('[corr] 复制到 static/corr/ 完成')
+    _gen_corr_json(dst)
+
+
+def _gen_corr_json(dst):
+    """把 Corr.xlsx 解析为 data.json（价格/IV 两个矩阵），供静态页直接 fetch。
+
+    关键处理：
+      - 表头行定位：首列等于 Date/日期 的那一行（xlsx 前 3 行为元数据）
+      - 列名统一 strip 尾空格（否则 compute.js 的 basePrice/baseIv 无法配对）
+      - 日期转 'YYYY-MM-DD' 字符串，空值保留 None
+      - 工作表识别：按列名含 FI.WI（价格）或 IV.WI（IV）统计
+    """
+    xlsx = os.path.join(dst, 'Corr.xlsx')
+    if not os.path.isfile(xlsx):
+        print('[corr] 跳过：无 Corr.xlsx')
+        return
+    try:
+        import openpyxl
+    except Exception as e:
+        print(f'[corr] openpyxl 不可用，跳过 data.json: {e}')
+        return
+
+    def _find_header(mat):
+        """定位真实表头行：首列等于 Date/日期 且列名含 FI.WI/IV.WI（跳过无列名的元数据行）。"""
+        for i, r in enumerate(mat):
+            if r and r[0] is not None and str(r[0]).strip().lower() in ('date', '日期'):
+                cols = [str(c).strip() for c in r[1:] if c is not None]
+                if any('FI.WI' in c or 'IV.WI' in c for c in cols):
+                    return i
+        return None
+
+    def _sheet_kind(mat):
+        """按表头列名统计识别价格/IV 工作表。"""
+        hidx = _find_header(mat)
+        if hidx is None:
+            return None
+        h = mat[hidx]
+        n_p = sum(1 for c in h[1:] if c and 'FI.WI' in str(c))
+        n_i = sum(1 for c in h[1:] if c and 'IV.WI' in str(c))
+        return 'price' if n_p > n_i else ('iv' if n_i > n_p else None)
+
+    def _extract(mat):
+        """提取表头行 + 数据行矩阵；列名去尾空格、日期转字符串。"""
+        hidx = _find_header(mat)
+        if hidx is None:
+            return None
+        header = [('Date' if str(c).strip().lower() in ('date', '日期') else str(c).strip())
+                  for c in mat[hidx]]
+        out = [header]
+        for r in mat[hidx + 1:]:
+            if not r or r[0] is None:
+                continue
+            d0 = r[0]
+            ds = d0.strftime('%Y-%m-%d') if isinstance(d0, datetime) else str(d0).strip()
+            out.append([ds] + [None if v is None else v for v in r[1:]])
+        return out
+
+    wb = openpyxl.load_workbook(xlsx, read_only=True, data_only=True)
+    try:
+        sheets = {}
+        for name in wb.sheetnames:
+            mat = []
+            for row in wb[name].iter_rows(values_only=True):
+                mat.append(list(row))
+            sheets[name] = mat
+    finally:
+        wb.close()
+
+    price_mat = iv_mat = None
+    for mat in sheets.values():
+        k = _sheet_kind(mat)
+        if k == 'price' and price_mat is None:
+            price_mat = mat
+        elif k == 'iv' and iv_mat is None:
+            iv_mat = mat
+    if price_mat is None or iv_mat is None:
+        print('[corr] 未识别价格/IV 工作表，跳过 data.json')
+        return
+
+    price = _extract(price_mat)
+    iv = _extract(iv_mat)
+    if not price or not iv:
+        print('[corr] 矩阵提取失败，跳过 data.json')
+        return
+    latest = None
+    try:
+        dates = [r[0] for r in price[1:] if r and r[0]]
+        if dates:
+            latest = max(dates)
+    except Exception:
+        pass
+    data = {
+        'generated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'latest_date': latest,
+        'price': price,
+        'iv': iv,
+    }
+    with open(os.path.join(dst, 'data.json'), 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False)
+    print(f"[corr] 生成 data.json：价格 {len(price)-1} 行 x {len(price[0])} 列，"
+          f"IV {len(iv)-1} 行 x {len(iv[0])} 列，最新 {latest}")
 
 
 # ================= 8. site_info.json =================
