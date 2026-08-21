@@ -713,6 +713,14 @@ def build_corr():
         s = os.path.join(src, name)
         d = os.path.join(dst, name)
         if os.path.isdir(s):
+            if name == 'libs':
+                # libs 目录：排除 xlsx.full.min.js（静态版改用 data.json，无需浏览器 SheetJS）
+                makedirs(d)
+                for fn in os.listdir(s):
+                    if fn == 'xlsx.full.min.js':
+                        continue
+                    shutil.copy2(os.path.join(s, fn), os.path.join(d, fn))
+                continue
             # 兼容沙箱回收站限制：先删文件再删空目录，避免 rmtree 被劫持
             if os.path.exists(d):
                 for root, dirs, files in os.walk(d, topdown=False):
@@ -733,13 +741,13 @@ def build_corr():
             shutil.copytree(s, d)
         else:
             shutil.copy2(s, d)
-    # 静态版前端不再需要浏览器端 SheetJS（改 fetch data.json）
+    # 兜底清理历史残留（libs 已在上方排除复制；此处仅防旧残留）
     xlsx_lib = os.path.join(dst, 'libs', 'xlsx.full.min.js')
     if os.path.isfile(xlsx_lib):
         try:
             os.remove(xlsx_lib)
-        except OSError:
-            pass
+        except OSError as e:
+            print(f'[corr] 警告：无法删除残留 {xlsx_lib}: {e}')
     print('[corr] 复制到 static/corr/ 完成')
     _gen_corr_json(dst)
 
