@@ -86,6 +86,7 @@ body {
 .card.bg-metal { border-left-color: var(--metal); }
 .card.bg-agri { border-left-color: var(--agri); }
 .card.bg-ship { border-left-color: var(--ship); }
+.card.bg-idx { border-left-color: var(--navy-600); }
 .card .card-head {
   display: flex; align-items: center; gap: 12px; padding: 15px 22px 13px;
   border-bottom: 1px solid #f0f3f9; flex-wrap: wrap;
@@ -96,6 +97,7 @@ body {
 }
 .tag.gold { background: var(--gold); } .tag.black { background: var(--black); } .tag.energy { background: var(--energy); }
 .tag.metal { background: var(--metal); } .tag.agri { background: var(--agri); } .tag.ship { background: var(--ship); }
+.tag.idx { background: var(--navy-600); }
 .card .card-head .src { margin-left: auto; font-size: 12px; color: var(--text-3); display: inline-flex; align-items: center; gap: 6px; }
 .card .card-head .src::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #b9c4d8; }
 /* 三栏内容 */
@@ -141,8 +143,8 @@ body {
     <h1><span class="logo">📋</span> 商品基本面跟踪</h1>
     <div class="meta">
       <span><span class="dot"></span> 数据源：庞博大宗商品共享知识库</span>
-      <span>报告期：2026-08-18 ~ 2026-08-24</span>
-      <span>更新于 2026-08-24</span>
+      <span>报告期：2026-08-19 ~ 2026-08-25</span>
+      <span>更新于 2026-08-25</span>
     </div>
   </div>
 </div>
@@ -151,7 +153,7 @@ body {
 
   <div class="audit-bar">
     <span class="badge">报告期审核通过</span>
-    <span>最近一周（8/18~8/24）共核验研究报告 <b>20</b> 份，剔除金融衍生品/股指/美债/宏观 <b>4</b> 份，编入商品基本面 <b>16</b> 份，报告发布于 <b>2026-08-21 ~ 2026-08-23</b>，均处于最近一周窗口内</span>
+    <span>最近一周（8/19~8/25）共核验研究报告 <b>40</b> 份，剔除金融衍生品/股指/美债/宏观 <b>7</b> 份，编入商品基本面 <b>33</b> 份，报告发布于 <b>2026-08-21 ~ 2026-08-23</b>，均处于最近一周窗口内</span>
   </div>
 
   <!-- 贵金属 -->
@@ -186,20 +188,20 @@ body {
 
   <div class="card bg-gold">
     <div class="card-head">
-      <span class="name">铂金 / 钯金</span><span class="tag gold">贵金属</span><span class="src">有色日报 08-21</span>
+      <span class="name">铂金 / 钯金</span><span class="tag gold">贵金属</span><span class="src">周报 08-23</span>
     </div>
     <div class="cols">
       <div class="col fund">
         <div class="col-title">基本面</div>
         <ul>
-          <li>7 月美国 CPI/PPI 延续回落、零售月率负增长，加息预期降温</li>
-          <li>利率端预期变动主导贵金属定价；广期所铂仓单 5,409 手（-73）、钯仓单 5,481 手</li>
+          <li>长端利率回落叠加美元指数走弱，宏观定价环境对贵金属友好</li>
+          <li>铂钯延续强势运行，价格中枢随利率与美元预期抬升</li>
         </ul>
       </div>
       <div class="col outlook">
         <div class="col-title">行情展望</div>
         <ul>
-          <li>铂 443.65 元/克（+4.63%）、钯 315.65 元/克（+2.22%），偏强运行，持续关注利率端预期变动</li>
+          <li>铂钯强势运行，持续关注长端利率与美元指数走势对贵金属的牵引</li>
         </ul>
       </div>
       <div class="col risk">
@@ -216,14 +218,14 @@ body {
 
   <div class="card bg-black">
     <div class="card-head">
-      <span class="name">焦煤 / 焦炭</span><span class="tag black">黑色</span><span class="src">日报 08-21</span>
+      <span class="name">焦煤 / 焦炭</span><span class="tag black">黑色</span><span class="src">日报 08-21 + 黑色金属周报 08-23</span>
     </div>
     <div class="cols">
       <div class="col fund">
         <div class="col-title">基本面</div>
         <ul>
           <li>焦煤供应紧缺：山西安监持续严格、停产产能维持高位、蒙煤通关低位扰动，现货价格涨势迅猛</li>
-          <li>焦炭在成本推动 + 亏损减产下供需边际好转，首轮提涨即将落地（预期仍存）</li>
+          <li>焦炭在成本推动 + 亏损减产下供需边际好转，首轮提涨预期仍存；焦煤供应紧缺主导成本支撑，旺季需求成色待验证</li>
         </ul>
       </div>
       <div class="col outlook">
@@ -243,21 +245,20 @@ body {
 
   <div class="card bg-black">
     <div class="card-head">
-      <span class="name">钢材 / 铁矿</span><span class="tag black">黑色</span><span class="src">日报 08-21 + 策略</span>
+      <span class="name">钢材 / 铁矿</span><span class="tag black">黑色</span><span class="src">日报 08-21 + 周度策略 08-23</span>
     </div>
     <div class="cols">
       <div class="col fund">
         <div class="col-title">基本面</div>
         <ul>
-          <li>钢材淡季需求未显著回暖，制造业补库与建材季节性回升预期存在；铁水小幅下降、钢厂亏损扩大制约复产</li>
-          <li>铁矿到港波动剧烈但短期供应压力不突出，铁水负反馈预期证伪；废钢受极端天气影响到货减少</li>
-          <li>热卷基本面优于螺纹，短期库存压力尚可</li>
+          <li>钢材端铁水小幅下降、钢厂亏损扩大制约复产高度；终端需求季节性回暖特征不明显，库存压力不大但缺乏自身驱动，主要跟随炉料波动</li>
+          <li>铁矿到港波动剧烈，短期供应压力不突出；周度策略关注合金下行与螺纹反套机会</li>
         </ul>
       </div>
       <div class="col outlook">
         <div class="col-title">行情展望</div>
         <ul>
-          <li>螺纹处于 3000 元/吨成本关口，预计全年 2900-3300 元/吨箱体弱势震荡，"低趋势、高拉锯"；期权 IV 低位、PCR 自高位回落、近月 skew 偏贵，单边趋势性价比低，以期权工具箱（买方博凸性、组合控风险）应对</li>
+          <li>"原料强、成材弱"格局延续，钢材缺乏自身驱动、跟随炉料波动；关注螺纹反套与合金价差机会</li>
         </ul>
       </div>
       <div class="col risk">
@@ -269,26 +270,52 @@ body {
     </div>
   </div>
 
-  <!-- 能源化工 -->
-  <div class="section-head"><span class="num">03</span><span class="title">能源化工</span><span class="line"></span></div>
-
-  <div class="card bg-energy">
+  <div class="card bg-black">
     <div class="card-head">
-      <span class="name">原油 / 成品油</span><span class="tag energy">能源</span><span class="src">日报 + 数据报告 08-21</span>
+      <span class="name">玻璃 / 纯碱</span><span class="tag black">黑色</span><span class="src">周报 08-23</span>
     </div>
     <div class="cols">
       <div class="col fund">
         <div class="col-title">基本面</div>
         <ul>
-          <li>中东地缘未见缓和：美伊持续对抗、阿联酋遭弹道导弹袭击，美国宣布切断与伊朗一切经济联系；原油升至近一个月高位</li>
-          <li>美国柴油裂解价差超 100 美元/桶创历史纪录，成品油强于原油；中国炼厂毛利好转开工环比提升</li>
-          <li>中东供应冲击指标：沙特原油海运发运近 10 日均值 255.74 万桶/日，同比回落</li>
+          <li>玻璃纯碱基本面变动有限，供需矛盾暂不突出，价格主要受市场情绪与宏观预期扰动</li>
         </ul>
       </div>
       <div class="col outlook">
         <div class="col-title">行情展望</div>
         <ul>
-          <li>海峡低通行量格局下原油延续偏强，欧洲天然气亦受支撑；地缘溢价短期难消退</li>
+          <li>关注市场情绪波动带来的阶段性行情，方向取决于宏观预期与终端补库节奏</li>
+        </ul>
+      </div>
+      <div class="col risk">
+        <div class="col-title">风险提示</div>
+        <ul>
+          <li>情绪退潮后回归基本面；下游补库节奏不及预期</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 能源化工 -->
+  <div class="section-head"><span class="num">03</span><span class="title">能源化工</span><span class="line"></span></div>
+
+  <div class="card bg-energy">
+    <div class="card-head">
+      <span class="name">原油 / 成品油</span><span class="tag energy">能源</span><span class="src">日报 + 数据报告 08-21 + 周报 08-23</span>
+    </div>
+    <div class="cols">
+      <div class="col fund">
+        <div class="col-title">基本面</div>
+        <ul>
+          <li>中东地缘未见缓和：美伊持续对抗、美国威胁摧毁伊朗经济，原油升至近一个月最高水平；美国宣布切断与伊朗一切经济联系</li>
+          <li>美国柴油裂解价差创历史纪录，成品油强于原油；中国炼厂毛利好转、开工环比提升，负荷延续回升、原油仍处去库格局</li>
+          <li>沙特原油海运发运近 10 日均值 255.74 万桶/日、同比回落；8/12-8/21 发运 260 万桶/日，较 7 年均值 458 万桶/日仍有较大差距</li>
+        </ul>
+      </div>
+      <div class="col outlook">
+        <div class="col-title">行情展望</div>
+        <ul>
+          <li>海峡低通行量格局下原油延续偏强，欧洲天然气亦受支撑；供给受限支撑原油和化工价格，地缘溢价短期难消退</li>
         </ul>
       </div>
       <div class="col risk">
@@ -302,21 +329,22 @@ body {
 
   <div class="card bg-energy">
     <div class="card-head">
-      <span class="name">甲醇 / 聚酯 / 烯烃</span><span class="tag energy">化工</span><span class="src">调研快报 + 周报 08-21/23</span>
+      <span class="name">甲醇 / 聚酯 / 烯烃</span><span class="tag energy">化工</span><span class="src">调研快报 08-21 + 周报 08-23</span>
     </div>
     <div class="cols">
       <div class="col fund">
         <div class="col-title">基本面</div>
         <ul>
           <li>伊朗货源进口减量，MTO 工厂采购由传统进口转向国产煤制 + 非伊进口的多元化渠道，各渠道精炼甲醇品质无明显差异</li>
-          <li>塑料/PP/丙烯：盘面主力换月，关注下游需求淡旺季切换中的承接力度；PE/PP 开工短期偏稳，PL 供给小幅回落</li>
-          <li>PX-TA-EG-PR-PF：PX 供需双增过渡，TA 格局偏紧带动 PX；TA、EG 走势分化，聚酯亏损加剧减产加码</li>
+          <li>塑料/PP/丙烯：盘面主力换月，PE/PP 开工短期偏稳、PL 供给小幅回落，关注下游淡旺季切换中的承接力度</li>
+          <li>PX-TA-EG-PR-PF：PX 供需双增过渡、TA 格局偏紧带动 PX；TA、EG 走势分化，聚酯亏损加剧减产加码</li>
+          <li>甲醇：进口到港与港口库存短时回升，持续上行后区间震荡；尿素供需部分好转、震荡整理</li>
         </ul>
       </div>
       <div class="col outlook">
         <div class="col-title">行情展望</div>
         <ul>
-          <li>烯烃换月关注需求承接力度；TA 受聚酯减产拖累、EG 相对抗跌；甲醇在进口减量下偏强</li>
+          <li>烯烃换月关注需求承接力度；TA 受聚酯减产拖累、EG 相对抗跌；甲醇在进口减量支撑下偏强震荡</li>
         </ul>
       </div>
       <div class="col risk">
@@ -330,13 +358,68 @@ body {
 
   <div class="card bg-energy">
     <div class="card-head">
+      <span class="name">纯苯 / 苯乙烯 / PVC / 烧碱</span><span class="tag energy">化工</span><span class="src">周报 08-23</span>
+    </div>
+    <div class="cols">
+      <div class="col fund">
+        <div class="col-title">基本面</div>
+        <ul>
+          <li>纯苯：装置集中复产但短期流通货源仍偏紧，现货紧张局面难解，预计维持高基差、走势偏震荡</li>
+          <li>PVC：基本面改善有限，低利润压制边际企业开工，价格低位震荡；烧碱重心抬升</li>
+        </ul>
+      </div>
+      <div class="col outlook">
+        <div class="col-title">行情展望</div>
+        <ul>
+          <li>纯苯维持高基差、偏震荡；PVC 低位运行、烧碱重心缓慢抬升</li>
+        </ul>
+      </div>
+      <div class="col risk">
+        <div class="col-title">风险提示</div>
+        <ul>
+          <li>装置复产超预期缓解纯苯紧张；下游需求跟进不足压制 PVC</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-energy">
+    <div class="card-head">
+      <span class="name">LPG / 硫磺 / 石脑油</span><span class="tag energy">化工</span><span class="src">周报 08-23</span>
+    </div>
+    <div class="cols">
+      <div class="col fund">
+        <div class="col-title">基本面</div>
+        <ul>
+          <li>LPG：原油上涨、基差修复、汽油强势共振，盘面强势上行；国内主营开工率 73.4%（周环比 +0.2pct）</li>
+          <li>硫磺：旺季成色不佳，供应偏低但需求偏弱，硫磺重心下移</li>
+          <li>石脑油：原油上涨但市场仍显平淡，MOPJ 纸货首行 815.46 美元/吨（周涨 +54.44）</li>
+        </ul>
+      </div>
+      <div class="col outlook">
+        <div class="col-title">行情展望</div>
+        <ul>
+          <li>LPG 强势上行；石脑油随原油被动跟涨、自身基本面平淡；硫磺重心下移</li>
+        </ul>
+      </div>
+      <div class="col risk">
+        <div class="col-title">风险提示</div>
+        <ul>
+          <li>原油回落拖累油化工链估值；硫磺需求旺季不旺延续</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-energy">
+    <div class="card-head">
       <span class="name">沥青 / 低高硫燃油</span><span class="tag energy">化工</span><span class="src">周报 08-23</span>
     </div>
     <div class="cols">
       <div class="col fund">
         <div class="col-title">基本面</div>
         <ul>
-          <li>沥青现货偏强、期价高位震荡；钢联数据显示沥青炼厂开工率 23.5%（环比 -0.7%，同比 -7.2%），上半年需求降幅较大</li>
+          <li>沥青现货偏强、期价高位震荡；炼厂开工率 23.5%（环比 -0.7%，同比 -7.2%），上半年需求降幅较大</li>
           <li>低高硫燃油受地缘扰动下重油强势带动，期价仍偏强</li>
         </ul>
       </div>
@@ -364,7 +447,7 @@ body {
         <div class="col-title">基本面</div>
         <ul>
           <li>地缘溢价持续与低库存格局，油气高位震荡运行</li>
-          <li>全国碳市场量增价稳窄幅震荡，短期延续区间盘整（数据来源：上海环境能源交易所）</li>
+          <li>全国碳市场量增价稳窄幅震荡，短期延续区间盘整（数据来源：上海环境能源交易所），中长期偏强格局未改</li>
         </ul>
       </div>
       <div class="col outlook">
@@ -382,12 +465,68 @@ body {
     </div>
   </div>
 
+  <!-- 有色 -->
+  <div class="section-head"><span class="num">04</span><span class="title">有色</span><span class="line"></span></div>
+
+  <div class="card bg-metal">
+    <div class="card-head">
+      <span class="name">基本金属</span><span class="tag metal">有色</span><span class="src">周报 + 周度策略 08-23</span>
+    </div>
+    <div class="cols">
+      <div class="col fund">
+        <div class="col-title">基本面</div>
+        <ul>
+          <li>美元进一步走弱 VS 伦铜集中交仓，基本金属探底回升，两股力量形成多空对冲</li>
+          <li>周度策略关注铅锭内外正套机会，有色板块整体受美元走弱支撑</li>
+        </ul>
+      </div>
+      <div class="col outlook">
+        <div class="col-title">行情展望</div>
+        <ul>
+          <li>美元走弱支撑基本金属估值修复，探底回升格局延续；关注铅锭内外正套</li>
+        </ul>
+      </div>
+      <div class="col risk">
+        <div class="col-title">风险提示</div>
+        <ul>
+          <li>伦铜集中交仓带来库存压力；美元反弹；国内需求复苏不及预期</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-metal">
+    <div class="card-head">
+      <span class="name">新能源金属（硅铁 / 锰硅）</span><span class="tag metal">有色</span><span class="src">周报 08-23</span>
+    </div>
+    <div class="cols">
+      <div class="col fund">
+        <div class="col-title">基本面</div>
+        <ul>
+          <li>供需预期偏宽松，双硅（硅铁、锰硅）价格上方高度或受限</li>
+        </ul>
+      </div>
+      <div class="col outlook">
+        <div class="col-title">行情展望</div>
+        <ul>
+          <li>双硅上方高度受限，维持震荡运行为主</li>
+        </ul>
+      </div>
+      <div class="col risk">
+        <div class="col-title">风险提示</div>
+        <ul>
+          <li>供给放量超预期；下游钢厂需求疲弱拖累</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
   <!-- 农业 -->
-  <div class="section-head"><span class="num">04</span><span class="title">农业</span><span class="line"></span></div>
+  <div class="section-head"><span class="num">05</span><span class="title">农业</span><span class="line"></span></div>
 
   <div class="card bg-agri">
     <div class="card-head">
-      <span class="name">天然橡胶 / 合成橡胶</span><span class="tag agri">农业</span><span class="src">日报 + 橡胶类周报 08-21/23</span>
+      <span class="name">天然橡胶 / 合成橡胶</span><span class="tag agri">农业</span><span class="src">日报 08-21 + 橡胶类周报 08-23</span>
     </div>
     <div class="cols">
       <div class="col fund">
@@ -414,20 +553,20 @@ body {
 
   <div class="card bg-agri">
     <div class="card-head">
-      <span class="name">油脂油料（棕榈 / 豆菜粕）</span><span class="tag agri">农业</span><span class="src">周报 08-23</span>
+      <span class="name">油脂油料（棕榈 / 豆菜粕）</span><span class="tag agri">农业</span><span class="src">日报 08-21 + 周报 08-23</span>
     </div>
     <div class="cols">
       <div class="col fund">
         <div class="col-title">基本面</div>
         <ul>
-          <li>棕榈油领涨油脂，豆粕测试前高；油脂涨势分化（各品种基本面各异）</li>
-          <li>豆油基本面各异，油脂整体涨势分化；蛋白粕豆粕高位震荡偏强，等待田间巡查单产预估</li>
+          <li>棕榈油领涨油脂，豆粕测试前高；豆油基本面各异，油脂整体涨势分化</li>
+          <li>蛋白粕豆粕高位震荡偏强，等待田间巡查单产预估；玉米天气炒作降温、期现价格持稳</li>
         </ul>
       </div>
       <div class="col outlook">
         <div class="col-title">行情展望</div>
         <ul>
-          <li>棕榈油领涨，豆粕高位震荡偏强测试前高</li>
+          <li>棕榈油领涨，豆粕高位震荡偏强测试前高，关注单产预估指引</li>
         </ul>
       </div>
       <div class="col risk">
@@ -439,8 +578,35 @@ body {
     </div>
   </div>
 
+  <div class="card bg-agri">
+    <div class="card-head">
+      <span class="name">棉花 / 白糖 / 生猪</span><span class="tag agri">农业</span><span class="src">日报 08-21 + 周报 08-23</span>
+    </div>
+    <div class="cols">
+      <div class="col fund">
+        <div class="col-title">基本面</div>
+        <ul>
+          <li>天气驱动棉花增仓上涨；白糖印度开放进口、巴西估产下调，外强内震荡行情持续</li>
+          <li>生猪高价抑制需求，猪价上涨回调；纸浆存技术反弹需求但持续上涨动能不足</li>
+        </ul>
+      </div>
+      <div class="col outlook">
+        <div class="col-title">行情展望</div>
+        <ul>
+          <li>棉花天气驱动偏强；白糖外强内震荡仍是主基调；生猪高位回调</li>
+        </ul>
+      </div>
+      <div class="col risk">
+        <div class="col-title">风险提示</div>
+        <ul>
+          <li>天气炒作降温；进口政策变化（白糖）；生猪出栏节奏扰动</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
   <!-- 航运 -->
-  <div class="section-head"><span class="num">05</span><span class="title">航运</span><span class="line"></span></div>
+  <div class="section-head"><span class="num">06</span><span class="title">航运</span><span class="line"></span></div>
 
   <div class="card bg-ship">
     <div class="card-head">
@@ -469,19 +635,46 @@ body {
     </div>
   </div>
 
-  <!-- 商品指数 -->
-  <div class="section-head"><span class="num">06</span><span class="title">商品指数</span><span class="line"></span></div>
-
-  <div class="card bg-metal">
+  <div class="card bg-ship">
     <div class="card-head">
-      <span class="name">商品指数综合</span><span class="tag metal">指数</span><span class="src">周报 08-22</span>
+      <span class="name">大宗贸易（油轮 / 干散）</span><span class="tag ship">航运</span><span class="src">周报 08-23</span>
     </div>
     <div class="cols">
       <div class="col fund">
         <div class="col-title">基本面</div>
         <ul>
-          <li>8/17-8/21 商品指数涨 2.82%、商品 20 指数涨 3.03%；能源指数涨 10.78% 领涨（原油贡献 6.60%）</li>
-          <li>有色金属指数跌 0.41% 居首（铝跌 1.39%，贡献 -0.27%）；工业品指数涨 2.72%</li>
+          <li>VLCC 带动油轮运费上行，原油贸易流受地缘格局扰动</li>
+          <li>9 月巴拿马运河通行量将降至 32 艘/日（减少 3 艘），供给端收紧</li>
+        </ul>
+      </div>
+      <div class="col outlook">
+        <div class="col-title">行情展望</div>
+        <ul>
+          <li>油轮运费上行趋势延续，关注 VLCC 运力与运河通行变化对运价的支撑</li>
+        </ul>
+      </div>
+      <div class="col risk">
+        <div class="col-title">风险提示</div>
+        <ul>
+          <li>原油贸易流变化；运河通行政策调整；运力集中释放</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 商品指数 -->
+  <div class="section-head"><span class="num">07</span><span class="title">商品指数</span><span class="line"></span></div>
+
+  <div class="card bg-idx">
+    <div class="card-head">
+      <span class="name">商品指数综合</span><span class="tag idx">指数</span><span class="src">周报 08-22</span>
+    </div>
+    <div class="cols">
+      <div class="col fund">
+        <div class="col-title">基本面</div>
+        <ul>
+          <li>8/17-8/21 商品指数涨 2.82%、商品 20 指数涨 3.03%；工业品指数涨 2.72%</li>
+          <li>能源指数涨 10.78% 领涨（原油贡献 6.60%）；有色金属指数跌 0.41% 居首（铝跌 1.39%）；商品 20 指数中原油收益贡献 0.88% 居首</li>
         </ul>
       </div>
       <div class="col outlook">
@@ -500,7 +693,7 @@ body {
   </div>
 
   <div class="footer">
-    <div class="divider">数据来源：庞博大宗商品共享知识库 · 内容由研究报告摘要自动汇总，仅供参考，不构成投资建议 · 更新于 2026-08-24</div>
+    <div class="divider">数据来源：庞博大宗商品共享知识库 · 内容由研究报告摘要自动汇总，仅供参考，不构成投资建议 · 已剔除金融衍生品（股指/金融期权）与债券宏观类报告 · 更新于 2026-08-25</div>
   </div>
 
 </div>
