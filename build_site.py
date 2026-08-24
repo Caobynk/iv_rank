@@ -26,6 +26,7 @@ import json
 import os
 import shutil
 import sys
+import re
 from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -308,8 +309,8 @@ def build_vol_hist(latest):
         print('[vol_hist] 跳过：缓存目录不存在')
         return
 
-    # 有缓存的品种
-    codes = [f.replace('.csv', '') for f in os.listdir(cache_dir) if f.endswith('.csv')]
+    # 有缓存的品种（排除 _YYYY 年份后缀变体）
+    codes = [f.replace('.csv', '') for f in os.listdir(cache_dir) if f.endswith('.csv') and not re.search(r'_\d{4}\.csv$', f)]
 
     # varieties.json（只列有缓存的品种，避免前端选到无数据项）
     all_groups = get_varieties_grouped()
@@ -329,10 +330,12 @@ def build_vol_hist(latest):
             if idx.empty:
                 fail += 1
                 continue
-            vol = compute_all(
-                {'open': idx['open'], 'high': idx['high'], 'low': idx['low'], 'close': idx['close']},
-                window=30, ann=ANNUALIZATION,
-            )
+            # 容错：仅用 csv 中实际存在的列（Excel 源仅含 close；akshare 抓取含 OHLC）
+            cols = {k: idx[k] for k in ('open', 'high', 'low', 'close') if k in idx.columns}
+            if 'close' not in cols:
+                fail += 1
+                continue
+            vol = compute_all(cols, window=30, ann=ANNUALIZATION)
             dates = [d.strftime('%Y-%m-%d') for d in idx.index]
             variety = get_variety(code)
             result = {

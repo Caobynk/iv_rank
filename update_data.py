@@ -109,7 +109,8 @@ def main():
     results = {}
     results['overview'] = run_step('overview', date)
     results['oi_dist'] = run_step('oi_dist', date)
-    results['vol_hist'] = run_step('vol_hist', date)
+    # vol_hist 含 DCE 官方 API 顺序抓取，单品种可能耗时数分钟；收窄窗口后整体仍可能较长，给足超时
+    results['vol_hist'] = run_step('vol_hist', date, timeout=5400)
     results['iv_rank'] = run_step('iv_rank', date)
     results['pcr'] = run_step('pcr', date)
     results['gex'] = run_step('gex', date)

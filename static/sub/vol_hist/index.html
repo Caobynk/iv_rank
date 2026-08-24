@@ -240,8 +240,21 @@ function buildOption(d, method) {
   };
 }
 
+const METHOD_NAMES = {
+  close_to_close: '历史波动率(收盘价)', ewma: 'EWMA(风险矩阵)',
+  parkinson: 'Parkinson(高低价)', garman_klass: 'Garman-Klass(开高低收)'
+};
 function renderChart(method) {
   if (!current) return;
+  if (!current.vol || !current.vol[method]) {
+    // 数据源仅含收盘价（如从 Excel 价格指数计算），缺每日开/高/低/收价，无法算该方法
+    setStatus(`当前品种数据源仅含收盘价，无法计算「${METHOD_NAMES[method] || method}」（需每日开/高/低/收价）。可切换至「历史波动率(收盘价)」或「EWMA」。`, true);
+    if (chart) chart.clear();
+    const box = document.getElementById('cards');
+    if (box) box.replaceChildren();
+    return;
+  }
+  setStatus('');
   chart.setOption(buildOption(current, method), true);
   buildCards(current, method);
   updateDist(method);
