@@ -8,7 +8,7 @@ update_data.py - 商品期权信息汇总面板 · 数据抓取更新脚本
 抓取策略（对应各子服务数据源）：
   1. overview 成交统计    - 5 交易所日行情（requests + Playwright 反爬），写 data/*.json
   2. oi_dist 最痛点       - 5 交易所期权合约（requests + Playwright），写 cache/*.json
-  3. vol_hist 波动率     - akshare 期货日线 + OI 加权指数（force 刷新），写 .cache/*.csv
+  3. vol_hist 波动率     - Excel 数据源（DataCenter/Corr.xlsx），无需联网，写 .cache/*.csv
   4. iv_rank  IV 分位    - 数据源为主人维护的 Excel（无需抓取，直接复用最新）
   5. pcr     PCR 跟踪     - 5 交易所期权 PCR（增量回补 + 重建三表），写 data/tables/*.csv
   6. gex     GEX 分析     - 交易所行情（requests + Playwright），写 market_cache/*.json
@@ -109,8 +109,7 @@ def main():
     results = {}
     results['overview'] = run_step('overview', date)
     results['oi_dist'] = run_step('oi_dist', date)
-    # vol_hist 含 DCE 官方 API 顺序抓取，单品种可能耗时数分钟；收窄窗口后整体仍可能较长，给足超时
-    results['vol_hist'] = run_step('vol_hist', date, timeout=5400)
+    results['vol_hist'] = run_step('vol_hist', date)
     results['iv_rank'] = run_step('iv_rank', date)
     results['pcr'] = run_step('pcr', date)
     results['gex'] = run_step('gex', date)

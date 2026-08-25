@@ -19,7 +19,7 @@ build_site.py - 商品期权信息汇总面板 · 静态站点构建脚本
   static/corr/                         - 相关性静态页（原样复制）
   static/site_info.json                - 各子页数据日期汇总
 
-运行环境：需 pandas/numpy/openpyxl/requests（复用 GEX观察/.venv）。
+运行环境：需 pandas/numpy/openpyxl/requests（见 requirements.txt，或复用 GEX观察/.venv）。
 用法：venv/Scripts/python.exe build_site.py
 """
 import json
@@ -27,6 +27,7 @@ import os
 import shutil
 import sys
 import re
+import csv
 from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -48,31 +49,82 @@ def makedirs(p):
     os.makedirs(p, exist_ok=True)
 
 
+def _collect_cache_dates(cache_dir, sep='_'):
+    """从 {prefix}{sep}{YYYYMMDD}.json 文件名提取 8 位日期。"""
+    dates = []
+    if os.path.isdir(cache_dir):
+        for f in os.listdir(cache_dir):
+            if f.endswith('.json') and sep in f:
+                ds = f.rsplit(sep, 1)[1].replace('.json', '')
+                if len(ds) == 8 and ds.isdigit():
+                    dates.append(ds)
+    return dates
+
+
 def detect_latest_date():
     """从各子服务缓存目录探测最新共同交易日，避免硬编码过期。"""
-    dates = []
-    # 成交统计缓存 data/{ex}_{YYYYMMDD}.json
-    d = os.path.join(P_OVERVIEW, 'data')
-    if os.path.isdir(d):
-        for f in os.listdir(d):
-            if f.endswith('.json') and '_' in f:
-                ds = f.rsplit('_', 1)[1].replace('.json', '')
-                if len(ds) == 8 and ds.isdigit():
-                    dates.append(ds)
-    # 最痛点缓存 cache/{ex}_{YYYYMMDD}.json
-    d = os.path.join(P_OIDIST, 'cache')
-    if os.path.isdir(d):
-        for f in os.listdir(d):
-            if f.endswith('.json') and '_' in f:
-                ds = f.rsplit('_', 1)[1].replace('.json', '')
-                if len(ds) == 8 and ds.isdigit():
-                    dates.append(ds)
-    if dates:
-        return max(dates)
-    return LATEST_DATE
+    dates = _collect_cache_dates(os.path.join(P_OVERVIEW, 'data'))
+    dates += _collect_cache_dates(os.path.join(P_OIDIST, 'cache'))
+    return max(dates) if dates else LATEST_DATE
 
 
 # ================= 1. overview 成交统计 =================
+def _build_exchange_varieties(ex, ex_data, ex_names):
+    """聚合单个交易所各品种的多日均值，返回 (varieties, ex_agg)。"""
+    var_map = {}
+    for day in ex_data:
+        for item in day.get('data', []):
+            code = item.get('variety_code')
+            if not code:
+                continue
+            v = var_map.setdefault(code, {
+                'variety_code': code, 'variety_name': item.get('variety_name', ''),
+                'exchange': ex, 'exchange_name': ex_names.get(ex, ex),
+                'futures_total_volume': 0, 'options_total_volume': 0,
+                'futures_total_turnover': 0.0, 'options_total_turnover': 0.0,
+                'futures_total_open_interest': 0, 'options_total_open_interest': 0,
+                'days': 0,
+            })
+            v['futures_total_volume'] += item.get('futures_volume', 0)
+            v['options_total_volume'] += item.get('options_volume', 0)
+            v['futures_total_turnover'] += item.get('futures_turnover', 0.0)
+            v['options_total_turnover'] += item.get('options_turnover', 0.0)
+            v['futures_total_open_interest'] += item.get('futures_open_interest', 0)
+            v['options_total_open_interest'] += item.get('options_open_interest', 0)
+            v['days'] += 1
+
+    varieties = []
+    for code, v in var_map.items():
+        days = v['days'] or 1
+        avg_fut = v['futures_total_volume'] / days
+        avg_opt = v['options_total_volume'] / days
+        avg_fut_oi = v['futures_total_open_interest'] / days
+        avg_opt_oi = v['options_total_open_interest'] / days
+        varieties.append({
+            'variety_code': code, 'variety_name': v['variety_name'],
+            'exchange': ex, 'exchange_name': ex_names.get(ex, ex),
+            'futures_avg_volume': round(avg_fut, 2),
+            'options_avg_volume': round(avg_opt, 2),
+            'futures_avg_turnover': round(v['futures_total_turnover'] / days, 2),
+            'options_avg_turnover': round(v['options_total_turnover'] / days, 2),
+            'futures_avg_open_interest': round(avg_fut_oi, 2),
+            'options_avg_open_interest': round(avg_opt_oi, 2),
+            'options_to_futures_ratio': round(avg_opt / avg_fut, 4) if avg_fut > 0 else 0,
+            'options_to_futures_ratio_pct': round(avg_opt / avg_fut * 100, 2) if avg_fut > 0 else 0,
+            'options_oi_to_futures_ratio': round(avg_opt_oi / avg_fut_oi, 4) if avg_fut_oi > 0 else 0,
+            'options_oi_to_futures_ratio_pct': round(avg_opt_oi / avg_fut_oi * 100, 2) if avg_fut_oi > 0 else 0,
+            'days': days,
+        })
+    varieties.sort(key=lambda x: x['options_avg_volume'], reverse=True)
+    ex_agg = {
+        'fut_vol': sum(v['futures_avg_volume'] for v in varieties),
+        'opt_vol': sum(v['options_avg_volume'] for v in varieties),
+        'fut_oi': sum(v['futures_avg_open_interest'] for v in varieties),
+        'opt_oi': sum(v['options_avg_open_interest'] for v in varieties),
+    }
+    return varieties, ex_agg
+
+
 def build_overview(latest):
     """从成交统计本地缓存 data/*.json 聚合最新交易日数据（不联网）。"""
     out = os.path.join(SUB_DIR, 'overview')
@@ -113,8 +165,6 @@ def build_overview(latest):
         'DCE': 'DCE 大商所', 'CZCE': 'CZCE 郑商所', 'SHFE': 'SHFE 上期所',
         'INE': 'INE 上期能源', 'GFEX': 'GFEX 广期所',
     }
-    ex_short = {'DCE': 'DCE', 'CZCE': 'CZCE', 'SHFE': 'SHFE', 'INE': 'INE', 'GFEX': 'GFEX'}
-
     def load_day(ex, ds):
         p = day_files.get(ds, {}).get(ex)
         if not p or not os.path.exists(p):
@@ -137,67 +187,11 @@ def build_overview(latest):
                 ex_data.append(d)
         if not ex_data:
             continue
-        # 品种聚合
-        var_map = {}
-        for day in ex_data:
-            for item in day.get('data', []):
-                code = item.get('variety_code')
-                if not code:
-                    continue
-                v = var_map.setdefault(code, {
-                    'variety_code': code,
-                    'variety_name': item.get('variety_name', ''),
-                    'exchange': ex,
-                    'exchange_name': ex_names.get(ex, ex),
-                    'futures_total_volume': 0, 'options_total_volume': 0,
-                    'futures_total_turnover': 0.0, 'options_total_turnover': 0.0,
-                    'futures_total_open_interest': 0, 'options_total_open_interest': 0,
-                    'days': 0,
-                })
-                v['futures_total_volume'] += item.get('futures_volume', 0)
-                v['options_total_volume'] += item.get('options_volume', 0)
-                v['futures_total_turnover'] += item.get('futures_turnover', 0.0)
-                v['options_total_turnover'] += item.get('options_turnover', 0.0)
-                v['futures_total_open_interest'] += item.get('futures_open_interest', 0)
-                v['options_total_open_interest'] += item.get('options_open_interest', 0)
-                v['days'] += 1
-
-        varieties = []
-        for code, v in var_map.items():
-            days = v['days'] or 1
-            avg_fut = v['futures_total_volume'] / days
-            avg_opt = v['options_total_volume'] / days
-            avg_fut_oi = v['futures_total_open_interest'] / days
-            avg_opt_oi = v['options_total_open_interest'] / days
-            varieties.append({
-                'variety_code': code,
-                'variety_name': v['variety_name'],
-                'exchange': ex,
-                'exchange_name': ex_names.get(ex, ex),
-                'futures_avg_volume': round(avg_fut, 2),
-                'options_avg_volume': round(avg_opt, 2),
-                'futures_avg_turnover': round(v['futures_total_turnover'] / days, 2),
-                'options_avg_turnover': round(v['options_total_turnover'] / days, 2),
-                'futures_avg_open_interest': round(avg_fut_oi, 2),
-                'options_avg_open_interest': round(avg_opt_oi, 2),
-                'options_to_futures_ratio': round(avg_opt / avg_fut, 4) if avg_fut > 0 else 0,
-                'options_to_futures_ratio_pct': round(avg_opt / avg_fut * 100, 2) if avg_fut > 0 else 0,
-                'options_oi_to_futures_ratio': round(avg_opt_oi / avg_fut_oi, 4) if avg_fut_oi > 0 else 0,
-                'options_oi_to_futures_ratio_pct': round(avg_opt_oi / avg_fut_oi * 100, 2) if avg_fut_oi > 0 else 0,
-                'days': days,
-            })
-        varieties.sort(key=lambda x: x['options_avg_volume'], reverse=True)
-
-        ex_agg = {
-            'fut_vol': sum(v['futures_avg_volume'] for v in varieties),
-            'opt_vol': sum(v['options_avg_volume'] for v in varieties),
-            'fut_oi': sum(v['futures_avg_open_interest'] for v in varieties),
-            'opt_oi': sum(v['options_avg_open_interest'] for v in varieties),
-        }
+        varieties, ex_agg = _build_exchange_varieties(ex, ex_data, ex_names)
         exchanges_result[ex] = {
             'exchange': ex,
             'exchange_name': ex_names.get(ex, ex),
-            'short': ex_short.get(ex, ex),
+            'short': ex,
             'variety_count': len(varieties),
             'total_futures_avg_volume': round(ex_agg['fut_vol'], 2),
             'total_options_avg_volume': round(ex_agg['opt_vol'], 2),
@@ -284,7 +278,7 @@ def build_vol_hist(latest):
     # 用 importlib 按文件路径定向加载，避免 varieties.py 模块名跨项目冲突
     try:
         import importlib.util
-        import numpy as np  # noqa: F401
+        import numpy as np
         import pandas as pd
 
         def _load(name, path):
@@ -428,7 +422,6 @@ def build_pcr(latest):
         path = os.path.join(tables_dir, name)
         out_d = {}
         with open(path, 'r', encoding='utf-8', newline='') as f:
-            import csv
             r = csv.reader(f)
             header = next(r)
             keys = header[1:]
@@ -583,8 +576,7 @@ def build_gex(latest):
     with open(os.path.join(out, 'varieties.json'), 'w', encoding='utf-8') as f:
         json.dump({'success': True, 'groups': groups}, f, ensure_ascii=False)
 
-    from datetime import datetime as _dt
-    trade_dt = _dt.strptime(latest, '%Y%m%d').date()
+    trade_dt = datetime.strptime(latest, '%Y%m%d').date()
 
     ok, fail = 0, 0
     fails = []
@@ -884,7 +876,6 @@ def refresh_html_dates(latest):
     若构建时不同步更新会显示过期日期（如数据已到 8/21 页面仍显示 8/18）。
     用正则替换所有 YYYY-MM-DD 字面量（当前各页内仅快照日期语义）。
     """
-    import re
     dash = f'{latest[:4]}-{latest[4:6]}-{latest[6:]}'
     pat = re.compile(r'\d{4}-\d{2}-\d{2}')
     changed = 0

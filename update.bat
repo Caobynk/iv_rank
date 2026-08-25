@@ -45,7 +45,7 @@ echo  [2/5] Fetching latest data from exchanges (10-15 min)...
 echo ==========================================================
 echo   - overview : 5 exchange daily data
 echo   - oi_dist  : 5 exchange option contracts
-echo   - vol_hist : akshare volatility refresh
+echo   - vol_hist : volatility from Excel (no network)
 echo   - pcr      : incremental PCR + rebuild tables
 echo   - gex      : all-variety market quotes
 echo.

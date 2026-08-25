@@ -26,18 +26,36 @@ def write(p, s):
     with open(p, 'w', encoding='utf-8') as f:
         f.write(s)
 
-def strip_block(html, start_marker, end_marker=None, keep_end=False):
-    """删除从 start_marker 到 end_marker（含）的整块；end_marker 为 None 时删到文件尾前。"""
-    i = html.find(start_marker)
-    if i < 0:
-        return html
-    if end_marker is None:
-        return html[:i]
-    j = html.find(end_marker, i)
-    if j < 0:
-        return html
-    j += len(end_marker)
-    return html[:i] + html[j:]
+def _ensure_vol_hist_guard(path):
+    """在 renderChart 入口注入 Parkinson/Garman-Klass 无数据守卫（幂等）。
+
+    静态版 vol_hist 仅含收盘价（close_to_close/ewma），选另两种方法时无数据。
+    本函数固化守卫，确保重跑 generate_frontends 不会丢失手改的容错逻辑。
+    """
+    s = read(path)
+    if 'METHOD_NAMES' in s:
+        return
+    marker = 'function renderChart(method) {'
+    if marker not in s:
+        print('  [warn] vol_hist renderChart 锚点未找到，守卫未注入')
+        return
+    guard = (
+        "    const METHOD_NAMES = {\n"
+        "      close_to_close: '历史波动率(收盘价)', ewma: 'EWMA(风险矩阵)',\n"
+        "      parkinson: 'Parkinson(高低价)', garman_klass: 'Garman-Klass(开高低收)'\n"
+        "    };\n"
+        "    if (!current) return;\n"
+        "    if (!current.vol || !current.vol[method]) {\n"
+        "      setStatus('当前品种数据源仅含收盘价，无法计算该波动率方法（需每日开/高/低/收价）。可切换至「历史波动率(收盘价)」或「EWMA」。', true);\n"
+        "      if (chart) chart.clear();\n"
+        "      const box = document.getElementById('cards');\n"
+        "      if (box) box.replaceChildren();\n"
+        "      return;\n"
+        "    }\n"
+        "    setStatus('');\n"
+    )
+    s = s.replace(marker, marker + '\n' + guard, 1)
+    write(path, s)
 
 # ---------- oi_dist 最痛点 ----------
 def gen_oi_dist():
@@ -89,6 +107,7 @@ def gen_vol_hist():
     # 刷新按钮禁用
     h = h.replace('<button id="refresh" class="primary">刷新数据</button>', '<button id="refresh" class="primary" disabled>刷新数据（静态版）</button>')
     write(os.path.join(STATIC, 'vol_hist', 'index.html'), h)
+    _ensure_vol_hist_guard(os.path.join(STATIC, 'vol_hist', 'index.html'))
     print('vol_hist OK')
 
 # ---------- pcr PCR 跟踪 ----------
