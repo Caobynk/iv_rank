@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品基本面深度梳理与交易策略</title>
+<style>
+:root {
+  --navy-900: #0c2c5a;
+  --navy-700: #16386e;
+  --navy-600: #1d39c4;
+  --accent: #2563eb;
+  --bg: #f2f5fa;
+  --card: #ffffff;
+  --border: #e3e8f1;
+  --text: #1c2735;
+  --text-2: #5a6577;
+  --text-3: #8b96ab;
+  --gold: #b45309;
+  --black: #3f4c5e;
+  --energy: #b3342e;
+  --metal: #6d4fd8;
+  --agri: #14855c;
+  --ship: #0e7490;
+  --c-fund: #2563eb;
+  --c-conf: #7c3aed;
+  --c-view: #0d9f6e;
+  --c-risk: #d9480f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg); color: var(--text); padding: 0 0 56px;
+}
+/* ===== 顶部横幅 ===== */
+.hero {
+  background: linear-gradient(120deg, var(--navy-900) 0%, var(--navy-700) 55%, var(--navy-600) 100%);
+  color: #fff; padding: 34px 40px 30px; position: relative; overflow: hidden;
+}
+.hero::after {
+  content: ""; position: absolute; right: -80px; top: -100px; width: 340px; height: 340px;
+  border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.08), transparent 70%);
+}
+.hero .inner { max-width: 1180px; margin: 0 auto; position: relative; z-index: 1; }
+.hero .kicker { font-size: 12px; letter-spacing: 3px; color: rgba(255,255,255,.65); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.hero .kicker::before { content: ""; width: 22px; height: 2px; background: #60a5fa; display: inline-block; }
+.hero h1 { font-size: 26px; font-weight: 700; display: flex; align-items: center; gap: 12px; letter-spacing: .5px; }
+.hero h1 .logo {
+  width: 38px; height: 38px; border-radius: 10px; background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.22); display: inline-flex; align-items: center; justify-content: center;
+  font-size: 19px; backdrop-filter: blur(4px);
+}
+.hero .meta { margin-top: 12px; font-size: 12.5px; color: rgba(255,255,255,.72); display: flex; gap: 20px; flex-wrap: wrap; }
+.hero .meta span { display: inline-flex; align-items: center; gap: 6px; }
+.hero .meta .dot { width: 6px; height: 6px; border-radius: 50%; background: #34d399; box-shadow: 0 0 6px #34d399; }
+/* ===== 主内容 ===== */
+.container { max-width: 1180px; margin: 0 auto; padding: 0 40px; }
+/* 加工说明横幅 */
+.audit-bar {
+  display: flex; align-items: center; gap: 12px; background: #eef4fe; border: 1px solid #c9dcf7;
+  color: #1d4ed8; font-size: 13px; padding: 12px 18px; border-radius: 10px; margin: 22px 0 8px; flex-wrap: wrap;
+}
+.audit-bar .badge {
+  background: linear-gradient(135deg, var(--navy-600), #5b8def); color: #fff; font-size: 11.5px;
+  padding: 3px 12px; border-radius: 20px; font-weight: 600; letter-spacing: .5px; white-space: nowrap;
+}
+.audit-bar .dim { color: #5b7db8; }
+/* 总览卡 */
+.overview-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin: 14px 0 4px;
+  box-shadow: 0 1px 4px rgba(16,24,40,.05); overflow: hidden; border-left: 4px solid var(--navy-600);
+}
+.overview-card .card-head {
+  display: flex; align-items: center; gap: 12px; padding: 15px 22px 13px; border-bottom: 1px solid #f0f3f9; flex-wrap: wrap;
+}
+.overview-card .card-head .name { font-size: 16.5px; font-weight: 700; color: var(--navy-900); letter-spacing: .3px; }
+.overview-card .card-head .tag { font-size: 11px; color: #fff; background: var(--navy-600); padding: 2.5px 11px; border-radius: 20px; font-weight: 600; letter-spacing: .5px; }
+.overview-card .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.overview-card .col { padding: 15px 22px 16px; }
+.overview-card .col + .col { border-left: 1px solid #eef1f7; }
+.overview-card .col .col-title { font-size: 12px; font-weight: 700; color: var(--text-2); letter-spacing: 1px; margin-bottom: 9px; display: flex; align-items: center; gap: 7px; }
+.overview-card .col .col-title::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
+.overview-card .col.c1 .col-title::before { background: var(--c-conf); }
+.overview-card .col.c2 .col-title::before { background: var(--c-risk); }
+.overview-card ul { list-style: none; }
+.overview-card li { font-size: 13px; line-height: 1.75; color: var(--text-2); padding-left: 14px; position: relative; margin-bottom: 3px; }
+.overview-card li::before { content: "·"; position: absolute; left: 0; color: #b6c2d9; font-weight: 700; }
+.overview-card li b { color: var(--text); font-weight: 600; }
+/* 板块分组 */
+.section-head { display: flex; align-items: center; gap: 12px; margin: 30px 0 14px; }
+.section-head .num {
+  width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--navy-600), #5b8def);
+  color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 8px rgba(29,57,196,.28); flex-shrink: 0;
+}
+.section-head .title { font-size: 16px; font-weight: 700; color: var(--navy-900); letter-spacing: 1px; }
+.section-head .line { flex: 1; height: 1px; background: linear-gradient(to right, #cdd6e6, transparent); }
+/* ===== 品种卡片（四段式 2x2） ===== */
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 14px;
+  box-shadow: 0 1px 4px rgba(16,24,40,.05); overflow: hidden; transition: box-shadow .2s, transform .2s;
+  border-left: 4px solid #2563eb;
+}
+.card:hover { box-shadow: 0 8px 24px rgba(16,24,40,.10); transform: translateY(-2px); }
+.card.bg-gold { border-left-color: var(--gold); }
+.card.bg-black { border-left-color: var(--black); }
+.card.bg-energy { border-left-color: var(--energy); }
+.card.bg-metal { border-left-color: var(--metal); }
+.card.bg-agri { border-left-color: var(--agri); }
+.card.bg-ship { border-left-color: var(--ship); }
+.card .card-head {
+  display: flex; align-items: center; gap: 12px; padding: 15px 22px 13px;
+  border-bottom: 1px solid #f0f3f9; flex-wrap: wrap;
+}
+.card .card-head .name { font-size: 16.5px; font-weight: 700; color: var(--navy-900); letter-spacing: .3px; }
+.card .card-head .tag { font-size: 11px; color: #fff; padding: 2.5px 11px; border-radius: 20px; font-weight: 600; letter-spacing: .5px; }
+.tag.gold { background: var(--gold); } .tag.black { background: var(--black); } .tag.energy { background: var(--energy); }
+.tag.metal { background: var(--metal); } .tag.agri { background: var(--agri); } .tag.ship { background: var(--ship); }
+.card .card-head .src { margin-left: auto; font-size: 12px; color: var(--text-3); display: inline-flex; align-items: center; gap: 6px; }
+.card .card-head .src::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #b9c4d8; }
+/* 四段 2x2 网格 */
+.card .grid2 {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+}
+.card .quad { padding: 15px 22px 16px; }
+.card .quad:nth-child(odd) { border-right: 1px solid #eef1f7; }
+.card .quad:nth-child(n+3) { border-top: 1px solid #eef1f7; }
+.card .quad .q-title {
+  font-size: 12px; font-weight: 700; color: var(--text-2); letter-spacing: 1px; margin-bottom: 9px;
+  display: flex; align-items: center; gap: 7px;
+}
+.card .quad .q-title::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
+.card .quad.fund .q-title::before { background: var(--c-fund); }
+.card .quad.conf .q-title::before { background: var(--c-conf); }
+.card .quad.view .q-title::before { background: var(--c-view); }
+.card .quad.risk .q-title::before { background: var(--c-risk); }
+.card .quad ul { list-style: none; }
+.card .quad li {
+  font-size: 13px; line-height: 1.75; color: var(--text-2); padding-left: 14px; position: relative; margin-bottom: 3px;
+}
+.card .quad li::before { content: "·"; position: absolute; left: 0; color: #b6c2d9; font-weight: 700; }
+.card .quad li b { color: var(--text); font-weight: 600; }
+.card .quad.risk li b { color: #c2410c; }
+.card .quad.conf li b { color: #6d28d9; }
+.card .quad.view li b { color: #047857; }
+/* ===== 页脚 ===== */
+.footer {
+  max-width: 1180px; margin: 30px auto 0; padding: 0 40px;
+  font-size: 12px; color: var(--text-3); text-align: center; line-height: 1.9;
+}
+.footer .divider { border-top: 1px solid var(--border); padding-top: 18px; }
+/* ===== 响应式 ===== */
+@media (max-width: 900px) {
+  .card .grid2, .overview-card .cols { grid-template-columns: 1fr; }
+  .card .quad:nth-child(odd) { border-right: none; }
+  .card .quad:nth-child(n+2) { border-top: 1px solid #eef1f7; }
+  .overview-card .col + .col { border-left: none; border-top: 1px solid #eef1f7; }
+  .container, .hero .inner, .footer { padding-left: 20px; padding-right: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部横幅 -->
+<div class="hero">
+  <div class="inner">
+    <div class="kicker">COMMODITY INSIGHT & STRATEGY</div>
+    <h1><span class="logo">🧭</span> 商品基本面深度梳理与交易策略</h1>
+    <div class="meta">
+      <span><span class="dot"></span> 数据源：庞博大宗商品共享知识库</span>
+      <span>报告期：2026-08-20 ~ 2026-08-26</span>
+      <span>经本地投研知识库加工</span>
+      <span>生成于 2026-08-26</span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="audit-bar">
+    <span class="badge">IMA 总结 + 本地知识库加工</span>
+    <span>基于最近一周 <b>97</b> 份商品研究报告摘要，经本地投研框架（库存·基差·利润四象限 / 期限结构 / 行情反转三信号 / 持仓拥挤度 / 期权风控体系）二次加工，输出四大维度：<b>基本面梳理 · 矛盾中心 · 展望与建议 · 风控提醒</b></span>
+  </div>
+
+  <!-- 总览 -->
+  <div class="overview-card">
+    <div class="card-head">
+      <span class="name">本周商品市场全景：供给收缩主线 vs 需求疲软底色</span><span class="tag">总览</span>
+    </div>
+    <div class="cols">
+      <div class="col c1">
+        <div class="col-title">当前交易的矛盾中心</div>
+        <ul>
+          <li><b>地缘供给收缩 vs 全球需求走弱</b>：美制裁伊朗约 60 个实体（石油收入网络 + 影子船队）、霍尔木兹海峡低通行量，能源链成本整体上移；而美国 7 月零售月率意外负增长、国内 7 月经济数据普遍走弱，需求端缺乏共振</li>
+          <li><b>美元信用弱化 vs 长端利率高企</b>：财政部扩大长债回购缓解流动性恐慌但弱化美元信用，美元指数走弱利好贵金属与有色估值；30 年美债利率却升至近 20 年高位，构成短线扰动</li>
+          <li><b>天气行情 vs 证伪风险</b>：厄尔尼诺 + 正 IOD 炒作点燃橡胶、棕榈油、豆一、棉花等农产品与橡胶板块，但天气影响一旦证伪，情绪溢价将快速回吐</li>
+          <li><b>品种分化加剧</b>：8/17-21 商品指数 +2.82%，能源指数 +10.78% 领涨（原油贡献 6.60%），有色金属 -0.41% 垫底（铝 -1.39%），"原料强、成材弱"与"能源强、有色弱"并存</li>
+        </ul>
+      </div>
+      <div class="col c2">
+        <div class="col-title">跨品种统一风控提醒</div>
+        <ul>
+          <li><b>地缘缓和是能源链最大尾部风险</b>：原油及油化工链（LPG/沥青/燃油/甲醇/烯烃）当前定价含较高地缘溢价，美伊谈判或海峡通行恢复将引发快速回落，多单须设硬止损</li>
+          <li><b>天气炒作品种追高需谨慎</b>：橡胶、棕榈油、豆一等持仓快速放大的天气行情，拥挤度物极必反——一旦出现"价格高位 + 持仓量大幅下降"的组合，即为反转信号，注意多头踩踏</li>
+          <li><b>黑色需求端勿抢跑</b>：旺季需求成色未验证前，钢厂亏损扩大 + 终端回暖不明显，成本托底与需求疲软博弈下波动放大，杠杆不宜过重</li>
+          <li><b>期权端纪律</b>：IV 低位品种（如螺纹）宜买方博凸性、组合控风险；IV 已抬升品种（黄金 25% 中枢）卖方注意 gamma/vega 双波动率风险与保证金占用，避免重仓裸义务仓</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 贵金属 -->
+  <div class="section-head"><span class="num">01</span><span class="title">贵金属</span><span class="line"></span></div>
+
+  <div class="card bg-gold">
+    <div class="card-head">
+      <span class="name">黄金 / 白银</span><span class="tag gold">贵金属</span><span class="src">日报 08-19/20/21/25 + 周报 08-23 + 期权周报 08-22</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>美债信用风险担忧延续（公共债务突破 40 万亿美元），财政部扩大长债回购提振流动性但弱化美元信用，美元指数走弱；7 月美国 CPI/PPI 延续回落、零售月率意外负增长，加息预期降温</li>
+          <li>长端利率高位回落推动金银大涨，黄金一度突破 4500 美元、白银涨幅更大；期权隐含波动率围绕 25% 中枢震荡、价波同升有限</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>债务信用风险（多） vs 30 年美债利率近 20 年高位（空）</b>：前者推动避险与去美元化买盘，后者构成估值短线扰动，两股力量对冲决定节奏</li>
+          <li><b>宏观共振 vs 微观结构</b>：宏观面利率回落 + 债务担忧同向，期权市场 Delta/Gamma/Vega 共振亦指向上行，但 IV 25% 中枢下价波同升有限，追涨波动率溢价不划算</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>债务风险与利率回落共振，黄金维持强势上涨；前期建议的<b>牛市价差策略</b>得到验证，本周延续——用买方结构表达方向、控制时间价值损耗</li>
+          <li>白银弹性大于黄金，若金银比继续回落可考虑多银空金配对；关注回调至关键均线位的加仓机会而非追涨</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>30 年美债利率升至近 20 年高位，长端利率上行短线扰动金银；美联储纪要偏鹰及能源通胀风险构成制约</li>
+          <li>IV 25% 中枢震荡，期权买方注意时间价值损耗；追涨面临小幅回调波动，仓位控制优先</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-gold">
+    <div class="card-head">
+      <span class="name">铂金 / 钯金</span><span class="tag gold">贵金属</span><span class="src">日报 08-19/20/21/25 + 周报 08-23 + 异动快评 08-21</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>长端利率回落 + 美元指数走弱，宏观定价环境对贵金属友好，铂钯延续强势运行</li>
+          <li>广期所铂金主力 8/24 收 470.15 元/克（+2.77%）、钯金 324.60 元/克（+0.85%），仓单环比回落</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>贵金属配置需求（多） vs 汽车催化剂需求走弱（空）</b>：铂金受益于氢能与工业需求叙事，钯金则受燃油车电动化替代压制，两者基本面分化</li>
+          <li>仓单环比回落显示现货偏紧，但仓单绝对水平与虚实盘比对价格上方的制约需持续跟踪</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>铂价强势运行，持续关注利率端预期变动；美国财政赤字高企、通胀压力偏大背景下，贵金属配置需求延续</li>
+          <li>铂钯比价处于高位，若看好铂金氢能/工业逻辑可持有多铂空钯的配对思路（需注意流动性差异）</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>利率预期反复是主要扰动；钯金受汽车尾气催化剂需求走弱压制，单边多钯逻辑不成立</li>
+          <li>广期所新品种流动性有限，止损宽度与滑点成本需提前评估</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 黑色系 -->
+  <div class="section-head"><span class="num">02</span><span class="title">黑色系</span><span class="line"></span></div>
+
+  <div class="card bg-black">
+    <div class="card-head">
+      <span class="name">焦煤 / 焦炭</span><span class="tag black">黑色</span><span class="src">日报 08-19/20/21/25 + 黑色金属周报 08-23 + 国际化日报 08-25</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>焦煤供应紧缺：山西安监持续严格、停产产能维持高位、蒙煤通关低位，现货货源紧缺推动价格加速上涨，为黑色板块提供成本支撑</li>
+          <li>焦炭在成本推动 + 亏损减产下供需边际好转，首轮提涨落地、二轮提涨预期仍存；铁水产量高位回落</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>原料紧缺（多） vs 终端需求成色未验证（空）</b>：焦煤现货紧 + 低库存 + 成本推动，符合"深贴水/低库存"做多象限；但铁水高位回落、旺季需求季节性回暖不明显压制上方空间</li>
+          <li>产业链呈"原料强、成材弱"分化，利润在产业链内再分配，焦化利润能否持续修复取决于提涨落地速度</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>焦煤强势引领板块上行，旺季需求成色待验证；在安监政策未见松动前，回调做多优于追高</li>
+          <li>关注焦化利润修复逻辑：若二轮提涨落地，多焦炭空焦煤的利润头寸有兑现空间（需跟踪提涨落地节奏）</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>终端需求季节性回暖不明显，需求证伪将压制板块整体高度；安监/通关政策边际放松是焦煤最大下行变量</li>
+          <li>铁水高位回落背景下，成本推升行情对需求端非常敏感，出现钢厂减产加速迹象须及时减仓</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-black">
+    <div class="card-head">
+      <span class="name">钢材 / 铁矿</span><span class="tag black">黑色</span><span class="src">日报 08-19/20/21/25 + 周度策略 08-23 + 铁矿发运数据 08-21 + 期权工具箱 08-20</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>钢材端铁水高位回落、钢厂亏损扩大制约复产空间，成材自身上行驱动不足；终端需求回暖特征不明显，热卷基本面优于螺纹</li>
+          <li>铁矿到港波动剧烈、短期供应压力不突出，全球发运窄幅波动处历年同期中位；螺纹 3000 元/吨成本关口，全年 2900-3300 箱体弱势震荡</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>炉料成本托底（多） vs 需求疲软（空）</b>：焦煤紧缺推升成本、螺纹贴水支撑估值，但终端需求回暖不明显，成材上行驱动不足，箱体震荡格局难破</li>
+          <li>钢厂亏损扩大 = 高成本 + 低需求挤压利润，若亏损引发超预期减产，原料端（铁矿/焦煤）将从支撑转为拖累，多空逻辑随时切换</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>炉料成本托底与需求疲软博弈、品种分化加剧；关注<b>螺纹反套</b>（近月贴水深 + 远月旺季预期）与<b>合金价差</b>机会</li>
+          <li>螺纹期权 IV 低位、单边趋势性价比低：以买方博凸性（虚值期权低成本表达方向）+ 组合控风险（价差/跨式）替代裸单边</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>钢厂亏损扩大压制复产、若亏损加深引发减产负反馈，原料端快速回落；终端需求超预期走弱；铁矿到港大幅回升打破供应平衡</li>
+          <li>箱体震荡格局下追涨杀跌双输，注意 2900/3300 箱体边界的假突破风险</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-black">
+    <div class="card-head">
+      <span class="name">玻璃 / 纯碱</span><span class="tag black">黑色</span><span class="src">周报 08-23</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>玻璃纯碱基本面变动有限，供需矛盾暂不突出，价格主要受市场情绪与宏观预期扰动</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>情绪/预期行情 vs 基本面回归</b>：短期无新增驱动，方向取决于宏观预期与终端补库节奏；低库存低驱动的环境下，波动主要来自资金面</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>关注市场情绪波动带来的阶段性行情；补库窗口开启前以区间思路对待，不追单边</li>
+          <li>纯碱玻璃基本面弱驱动，适合期权卖方收时间价值（IV 若抬升），但需严格仓位管理</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>情绪退潮后回归基本面、价格回落；下游补库节奏不及预期；纯碱高库存压力未解，反弹高度受限</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 能源化工 -->
+  <div class="section-head"><span class="num">03</span><span class="title">能源化工</span><span class="line"></span></div>
+
+  <div class="card bg-energy">
+    <div class="card-head">
+      <span class="name">原油 / 成品油</span><span class="tag energy">能源</span><span class="src">日报 08-19/20/21/25 + 周报 08-23 + 月度策略 08-24 + 数据/快评 08-20/21/24</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>美伊对抗升级：美国制裁伊朗约 60 个实体（含石油收入网络与影子船队）、威胁"前所未有的经济孤立"，霍尔木兹海峡低通行量，原油升至近一个月最高水平</li>
+          <li>成品油强于原油：美国柴油裂解价差超 100 美元/桶创历史记录；沙特发运低位（8/12-21 日均 260 万桶/日 vs 7 年均 458 万桶）；中国炼厂负荷延续回升、原油仍处去库格局</li>
+          <li>EIA 周度：商业原油延续累库、柴油逆季节性去库 153 万桶</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>地缘供给收缩（多） vs 需求端走弱（空）</b>：制裁升级 + 霍尔木兹低通行量 + 沙特发运低位构成供给收缩主线；美国零售负增长、全球需求担忧限制油价上方空间</li>
+          <li><b>裂解价差创纪录 = 结构矛盾</b>：柴油裂解 >100 美元/桶、柴油逆季节去库，成品油强于原油的结构短期难解，是"做多成品油/裂解"优于"裸多原油"的核心逻辑</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>地缘溢价短期难消退，供给受限支撑原油和化工价格；下半年旺季来临，全球柴油偏紧格局难见缓解</li>
+          <li>策略优先级：<b>多裂解价差/成品油 > 多原油单边</b>；单边多原油须以地缘事件为交易主轴，事件兑现即离场</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li><b>地缘缓和是最大尾部风险</b>：美伊谈判进展或海峡通行恢复，油价将快速回落，地缘溢价的回吐速度远超基本面调整速度</li>
+          <li>商业原油累库与需求走弱构成中期压制；EIA 数据发布日波动放大，仓位与止损需提前规划</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-energy">
+    <div class="card-head">
+      <span class="name">甲醇 / 聚酯 / 烯烃</span><span class="tag energy">化工</span><span class="src">调研 08-18/19/21/25 + 周报 08-23</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>伊朗货源进口减量，MTO 工厂采购由传统进口转向国产煤制 + 非伊进口的多元化渠道，各渠道精炼甲醇品质无明显差异</li>
+          <li>烯烃调研：生产企业开工积极性较高、产业链低库存支撑期价；PE/PP 开工短期偏稳、PL 供给小幅回落；PX 供需双增过渡、TA 格局偏紧带动 PX，聚酯亏损加剧减产加码</li>
+          <li>甲醇进口到港与港口库存短时回升，持续上行后区间震荡；尿素供需部分好转、震荡整理</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>低库存 + 供应受限（多） vs 下游承接力（空）</b>：烯烃产业链低库存支撑近端，但聚酯亏损加剧、减产加码，需求端承接力度决定换月后上行能否延续</li>
+          <li>甲醇采购渠道多元化后，伊朗减量的利多已被部分消化，到港回升 + 库存短增是边际转弱信号</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>低库存 + 供应受限支撑近端强势；烯烃换月关注下游淡旺季切换中的承接力度；TA 受聚酯减产拖累、EG 相对抗跌</li>
+          <li>TA/PX 偏紧格局下关注加工费修复；聚酯链弱势下多 EG 空 TA 的相对价值思路可跟踪</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>地缘缓和油价回落将整体拖累化工估值中枢；聚酯减产扩大将反噬原料需求；下游承接不及预期时近月强势快速消退</li>
+          <li>库存短时回升 + 到港增加，谨防甲醇高位回调；尿素供需仅部分好转，反弹持续性存疑</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-energy">
+    <div class="card-head">
+      <span class="name">纯苯 / 苯乙烯 / PVC / 烧碱</span><span class="tag energy">化工</span><span class="src">周报 08-23</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>纯苯：装置集中复产但短期流通货源仍偏紧、现货紧张局面难解，预计维持高基差、走势偏震荡</li>
+          <li>PVC：基本面改善有限，低利润压制边际企业开工，价格低位震荡；烧碱重心抬升</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>纯苯装置复产（空） vs 现货流通紧张（多）</b>：复产预期与高基差现货形成拉锯，基差收敛方式是关键变量——现货补跌还是期货补涨</li>
+          <li>PVC 低利润 vs 下游需求跟进不足：低利润提供成本支撑，但需求疲软使上方空间受限，低位震荡为主</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>纯苯维持高基差、偏震荡；PVC 低位运行、烧碱重心缓慢抬升</li>
+          <li>高基差品种可关注基差收敛交易（现货紧张解除后做空基差）；烧碱趋势相对明确，回调参与</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>装置复产超预期将快速缓解纯苯紧张、高基差崩塌；下游需求跟进不足压制 PVC 反弹高度</li>
+          <li>纯苯产业链价格联动强，原油回落时注意链式下行风险</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-energy">
+    <div class="card-head">
+      <span class="name">LPG / 硫磺 / 石脑油</span><span class="tag energy">化工</span><span class="src">周报 08-23</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>LPG：原油上涨、基差修复、汽油强势共振，盘面强势上行；国内主营开工率 73.4%（周环比 +0.2pct）</li>
+          <li>硫磺：旺季成色不佳，供应偏低但需求偏弱，重心下移；石脑油：原油上涨但市场仍显平淡，MOPJ 纸货首行 815.46 美元/吨（周涨 +54.44）</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>油化工链成本推升（多） vs 品种自身供需（分化）</b>：LPG 受原油 + 汽油强势共振上行，石脑油被动跟涨但自身平淡，硫磺旺季不旺独自走弱——同一条成本主线，品种强弱分化明显</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>LPG 强势上行延续，关注原油与基差修复的边际变化；石脑油随原油被动跟涨、自身基本面平淡；硫磺重心下移、弱势难改</li>
+          <li>强弱分化下可关注多 LPG 空硫磺的跨品种对冲（成本链条相同、基本面强弱相反）</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>原油回落将同步拖累 LPG/石脑油估值，且跌幅可能放大（跟涨品种回调更快）；硫磺需求旺季不旺延续、弱势行情中追空注意节奏</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-energy">
+    <div class="card-head">
+      <span class="name">沥青 / 低高硫燃油</span><span class="tag energy">化工</span><span class="src">周报 08-23 + 异动快评 08-24</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>沥青现货偏强、期价高位震荡；炼厂开工率 23.5%（环比 -0.7%、同比 -7.2%），上半年需求降幅较大</li>
+          <li>低高硫燃油受地缘扰动下重油强势带动，期价仍偏强；燃油 2609 个人客户退出最后交易日集中平仓、近月大涨 14%，2609-2701 价差走阔</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>重油地缘强势（多） vs 沥青需求疲软（空）</b>：燃油受地缘 + 重油供给收缩驱动偏强，沥青虽现货偏强但上半年需求降幅大、开工低迷，两者驱动同源、强弱分化</li>
+          <li>燃油近月大涨 14% 主因 2609 个人客户集中平仓的技术性挤兑，非基本面驱动，行情持续性存疑——事件驱动行情须区分"供需"与"交易结构"</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>地缘扰动下重油期价仍偏强，沥青高位震荡运行；燃油关注事件性波动消退后的回归</li>
+          <li>沥青低开工 + 现货偏强，旺季需求若启动有补涨空间；燃油价差走阔后注意回归风险，不追高</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>需求恢复不及预期将压制沥青；地缘缓和重油回落时燃油回撤幅度大（前期涨幅越陡、回撤越急）</li>
+          <li>燃油 2609 集中平仓事件显示临近交割月流动性风险，勿参与无流动性合约的裸交易</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-energy">
+    <div class="card-head">
+      <span class="name">能源电力 / 双碳</span><span class="tag energy">能源</span><span class="src">周报 08-23</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>地缘溢价持续与低库存格局，油气高位震荡运行</li>
+          <li>全国碳市场量增价稳窄幅震荡，短期延续区间盘整（数据来源：上海环境能源交易所），中长期偏强格局未改</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>短期区间盘整 vs 中长期偏强</b>：碳市场短期量增价稳、无新增驱动，但中长期供给收紧 + 履约需求支撑偏强格局，时间维度上的多空分歧</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>油气高位震荡，跟随原油地缘主线；碳市场中长期偏强运行格局未改，回调即布局机会（适合长期资金）</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>地缘缓和能源回落；碳价短期调整风险；碳市场流动性偏弱，大资金进出注意冲击成本</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 有色 -->
+  <div class="section-head"><span class="num">04</span><span class="title">有色</span><span class="line"></span></div>
+
+  <div class="card bg-metal">
+    <div class="card-head">
+      <span class="name">基本金属</span><span class="tag metal">有色</span><span class="src">日报 08-19/20/21/25 + 周报 08-23 + 周度策略 08-23</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>美元指数进一步趋弱（美债长端利率推高、财政部扩大回购缓解恐慌但弱化美元信用），基本金属震荡回升；原料端延续偏紧、冶炼端产量环比略降，供应支撑仍在</li>
+          <li>伦铜集中交仓与美元走弱形成多空对冲，基本金属探底回升；国内消费偏弱，但跌价后下游买盘有再度活跃迹象</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>美元走弱估值修复（多） vs 伦铜集中交仓库存压力（空）</b>：宏观估值修复与微观库存压力对冲，决定了行情以"探底回升"而非趋势上行的形式展开</li>
+          <li><b>原料端偏紧（多） vs 国内需求复苏不确定（空）</b>：供应支撑仍在，但国内消费偏弱、需求复苏未确认，去库斜率决定上行高度</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>美元走弱支撑基本金属估值修复，探底回升格局延续；关注<b>铅锭内外正套</b>与跨境套利窗口</li>
+          <li>跌价后下游买盘活跃提供支撑，回调分批建仓优于追涨；关注国内需求数据确认信号</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>伦铜集中交仓带来库存压力，若交仓延续将压制铜价；美元反弹直接逆转估值修复逻辑；国内需求复苏不及预期</li>
+          <li>内外盘套利注意汇率与物流时间差风险</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-metal">
+    <div class="card-head">
+      <span class="name">新能源金属（碳酸锂 / 硅）</span><span class="tag metal">有色</span><span class="src">日报 08-19/20/21/25 + 周报 08-23 + 异动快评 08-21 + 国际化日报 08-25</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>碳酸锂现实需求偏强（新能源车销量持续改善 + 储能高增长），8/21 主力合约涨超 4% 至 158680 元/吨，市场情绪修复、强现实驱动价格反弹；电池消费税对远期消费有负面影响</li>
+          <li>乐观情绪推高新能源金属价格，但供需过剩预期或限制双硅上方高度；光伏装机偏弱且预期悲观，压制硅产业链需求</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>碳酸锂强现实（多） vs 远期过剩预期（空）</b>：现实需求偏紧驱动反弹，但供给过剩 + 电池消费税远期负面压制高度——典型的"强现实弱预期"结构，期限结构是关键观测点</li>
+          <li>双硅（工业硅/多晶硅）：情绪推涨 vs 光伏装机偏弱，供需过剩预期限制上方高度</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>碳酸锂震荡回升，投资者聚焦现实偏紧供需、淡化远期消费担忧；双硅上方高度受限、维持震荡运行</li>
+          <li>碳酸锂"强现实弱预期"结构下，若近远月价差拉大可关注正套；单边以回调做多为宜，不宜追高</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>供需过剩预期兑现将逆转反弹逻辑；光伏装机持续偏弱压制硅链；电池消费税拖累远期需求、限制反弹天花板</li>
+          <li>新能源金属波动率大，情绪行情中仓位控制优先，防止单日大幅回撤</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 农业 -->
+  <div class="section-head"><span class="num">05</span><span class="title">农业</span><span class="line"></span></div>
+
+  <div class="card bg-agri">
+    <div class="card-head">
+      <span class="name">天然橡胶 / 合成橡胶</span><span class="tag agri">农业</span><span class="src">日报 08-19/20/21/25 + 周报 08-23 + 专题 08-24</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>厄尔尼诺炒作情绪不减，宏观、天气、原料共振，橡胶板块大幅上涨；合成橡胶突破前高继续上行</li>
+          <li>RU270 两周上涨 665 元/吨（+3.73%）、NR2610 上涨 690 元/吨（+4.66%），主力持仓大幅增加</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>天气减产预期（多） vs 供应恢复证伪（空）</b>：厄尔尼诺炒作 + 现货紧 + 海外定价权支撑高位韧性；但天气影响存在证伪风险，供应恢复超预期将快速回吐涨幅</li>
+          <li><b>持仓大幅增加的拥挤度风险</b>：从"增仓上行"到"价格反推"，主力持仓大幅增加意味着多头拥挤——按反转三信号，一旦出现"价格高位 + 持仓量大幅下降"组合即离场信号</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>现货紧格局 + 海外定价权视角下，高位韧性或超市场预期；天气担忧推动内外盘联袂上涨</li>
+          <li>趋势未破前持有为主，但不在急涨后追加仓位；回调企稳信号确认后再介入，注意合成胶与天胶价差回归</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>天气炒作降温 / 供应恢复超预期 → 情绪溢价快速回吐；宏观情绪回落</li>
+          <li>持仓大幅增加后的拥挤度反转是最大风险：密切关注持仓量变化，出现单日大幅减仓（多头离场）立即减仓</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-agri">
+    <div class="card-head">
+      <span class="name">油脂油料（棕榈 / 豆粕 / 豆一）</span><span class="tag agri">农业</span><span class="src">日报 08-20/21/25 + 周报 08-23 + 厄尔尼诺专题 08-20</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>棕榈油领涨油脂、豆粕测试前高；印尼旱季火情上行、热异常点集中于苏门答腊与加里曼丹棕榈油产区，厄尔尼诺 + 正 IOD 下棕榈油产量风险升温</li>
+          <li>田间巡查美豆结荚数偏少、双粕跟随外盘上涨；豆一"天气炒作 + 政策托底 + 资金涌入"三重利多，东北渍涝减产预期为核心驱动（8/5-18 累计涨 8.4%）</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>产地天气减产（多） vs 供需转宽松证伪（空）</b>：厄尔尼诺 + 正 IOD 下棕榈油产量风险升温，但若雨情改善/产量数据证伪，领涨逻辑快速瓦解</li>
+          <li><b>豆粕前高承压</b>：田间巡查结荚偏少支撑外盘，但前高压力位 + 单产预估不确定性使行情短期面临调整；豆一核心看东北渍涝减产兑现度</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>棕榈油领涨、油脂高位震荡；豆粕前高承压、内外盘短期面临调整；等待田间巡查单产预估指引方向</li>
+          <li>棕榈油回调做多优于追高；豆粕等单产数据落地后再定方向；豆一关注减产预期兑现的持续性</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>厄尔尼诺影响证伪 → 油脂领涨逻辑瓦解、回撤剧烈；原油回落拖累油脂情绪；产地供需转宽松</li>
+          <li>豆粕前高压力位附近波动放大，注意止损；豆一涨幅已大（8/5-18 +8.4%），追高风险累积</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-agri">
+    <div class="card-head">
+      <span class="name">饲料养殖（生猪 / 玉米）</span><span class="tag agri">农业</span><span class="src">调研 08-20/24 + 周报 08-23</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>母猪产能持续去化、周期磨底，8 月肥标价差扩大后压栏驱动猪价快速反弹；开学季生猪出栏增加、价格高位回调；广州调研显示头部集团场受减产政策调控、母猪存栏减少</li>
+          <li>玉米供强需弱格局未改、天气炒作难持续，期现阶段性走强</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>产能去化周期底（多） vs 高价抑制消费 + 出栏节奏（空）</b>：母猪产能持续去化奠定中期上行基础，但短期高价抑制消费、开学季出栏放量压制反弹空间</li>
+          <li><b>压栏驱动 vs 出栏放量</b>：8 月压栏推动快涨，开学季集中出栏形成阶段性供给压力，节奏博弈主导短期行情</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>生猪高位回调，旺季出栏节奏决定反弹空间；产能去化逻辑中期成立，回调至支撑位分批布局远月</li>
+          <li>玉米跟随天气与政策预期区间波动，供强需弱格局下反弹高度有限，区间操作</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>出栏节奏扰动（集中出栏超预期 → 现货急跌）；高价抑制消费、压栏堰塞湖风险；疫病或政策变化</li>
+          <li>生猪波动剧烈，近月合约流动性窗口短，注意换月移仓成本</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-agri">
+    <div class="card-head">
+      <span class="name">棉花 / 白糖 / 纸浆</span><span class="tag agri">农业</span><span class="src">日报 08-19/20/21/25 + 周报 08-23 + 白糖调研 08-19</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>天气驱动棉花增仓上涨；白糖印度开放进口、巴西估产下调，外强内震荡行情持续；北方甜菜糖 + 加工糖深度调研：供强需弱、甜菜减产难改全国食糖丰产预期</li>
+          <li>纸浆超跌后短期氛围回暖，但流动性压力不改、持续上涨驱动不显；原木成本端上行及旺季预期、市场有所回暖</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>白糖外强（巴西减产/印度进口） vs 内弱（全国丰产预期）</b>：外盘减产逻辑与国内供强需弱形成剪刀差，"外强内震荡"是核心矛盾，内外价差与进口利润是关键变量</li>
+          <li>棉花天气驱动 vs 需求疲软：天气炒作支撑增仓上涨，但下游需求无明显改善，涨幅持续性依赖天气兑现</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>棉花天气驱动偏强、关注天气兑现度；白糖外强内震荡仍是主基调，跟踪进口利润窗口；纸浆存技术反弹需求但上涨动能不足</li>
+          <li>白糖可关注内外价差收敛交易；棉花天气行情回调参与优于追高</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>天气炒作降温；白糖进口政策变化（进口窗口打开压制国内）；纸浆流动性压力未解、反弹后回落风险</li>
+          <li>原木/纸浆产业链联动，注意成本端上行不及预期时的回调</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 航运 -->
+  <div class="section-head"><span class="num">06</span><span class="title">航运</span><span class="line"></span></div>
+
+  <div class="card bg-ship">
+    <div class="card-head">
+      <span class="name">集运（欧线 / 美线）</span><span class="tag ship">航运</span><span class="src">日报 08-19/20 + 周报 08-23 + 专题 08-19 + 异动快评 08-24</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>SCFI 综合指数再度上行、欧线本周继续下跌，美线高位上行幅度收窄；四台风预期带动近月驱动偏强，盘后 SCFIS 微跌 0.2% 至 3238.5 点好于预期</li>
+          <li>MSK 41 周将停航 AE1 航线、9 月中旬 AE15 复航苏伊士运河航次空班；OOCL 9 月上旬降至 4300 美元/FEU、ONE 上调 EFS 紧急燃油附加费</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>供给收缩（停航/台风/空班） vs 需求走弱（欧线回落）</b>：SCFI 续涨而欧线回落——指数与分线背离，停航与台风扰动阶段性支撑运价，但需求端（欧洲进口）走弱构成中期压制</li>
+          <li>10 合约估值贴水较多 vs 旺季不及预期风险：贴水提供修复空间，但需求证伪则修复逻辑不成立</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>SCFI 续涨而欧线回落，停航与台风扰动或阶段性支撑运价；10 合约估值贴水较多、或仍有修复空间</li>
+          <li>贴水修复逻辑下关注 10 合约逢低参与；跟随运价指数与停航公告的边际变化动态调整</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>停航计划变动（复航提前 → 运价回落）；欧线需求走弱；旺季不及预期</li>
+          <li>集运指数波动极大（事件驱动型），台风/地缘消息脉冲行情中滑点与仓位控制优先</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-ship">
+    <div class="card-head">
+      <span class="name">大宗贸易（油轮 / 干散）</span><span class="tag ship">航运</span><span class="src">周报 08-23</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>VLCC 带动油轮运费上行，原油贸易流受地缘格局扰动（制裁升级 → 影子船队受限 → 有效运力收紧）</li>
+          <li>9 月巴拿马运河通行量将降至 32 艘/日（减少 3 艘），供给端收紧</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>地缘贸易流扰动（多） vs 运力集中释放（空）</b>：制裁收紧有效运力 + 运河通行减少支撑运费；但新船交付/运力集中释放与需求季节性回落构成对冲</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>油轮运费上行趋势延续，关注 VLCC 运力与运河通行变化对运价的支撑；地缘主线未变前偏多思路</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>原油贸易流变化（制裁缓和 → 影子船队回归 → 运力过剩）；运河通行政策调整；运力集中释放压制运费</li>
+          <li>油轮运费波动大且数据发布滞后，交易注意信息不对称风险</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 商品指数 -->
+  <div class="section-head"><span class="num">07</span><span class="title">商品指数</span><span class="line"></span></div>
+
+  <div class="card bg-idx">
+    <div class="card-head">
+      <span class="name">商品指数综合</span><span class="tag idx">指数</span><span class="src">周报 08-22 + 周度综述 08-24 + 晨报 08-19~25</span>
+    </div>
+    <div class="grid2">
+      <div class="quad fund">
+        <div class="q-title">基本面梳理</div>
+        <ul>
+          <li>8/17-21 商品指数涨 2.82%、商品 20 指数涨 3.03%、工业品指数涨 2.72%；能源指数涨 10.78% 领涨（原油贡献 6.60%）、有色金属指数跌 0.41% 居首（铝跌 1.39%）</li>
+          <li>国内商品期货多数上涨、能源品与贵金属涨幅居前；气候炒作（厄尔尼诺）引发关注、农产品普涨；国内 7 月经济数据普遍走弱、稳增长政策预期升温</li>
+        </ul>
+      </div>
+      <div class="quad conf">
+        <div class="q-title">矛盾中心</div>
+        <ul>
+          <li><b>能源强势 + 天气行情（多） vs 宏观需求转弱（空）</b>：指数上行主要由能源（地缘）与农产品（天气）贡献，国内需求数据走弱构成底色压制——指数上涨的"成色"存疑</li>
+          <li><b>稳增长政策预期 vs 数据证伪</b>：经济数据走弱推升政策预期，但政策落地节奏与力度未确认，预期交易先行、现实验证滞后</li>
+        </ul>
+      </div>
+      <div class="quad view">
+        <div class="q-title">展望与投资建议</div>
+        <ul>
+          <li>商品指数上行、原油贡献居首；能源强势领涨与农产品天气行情共振，关注宏观预期修复</li>
+          <li>指数层面结构分化明显（能源强、有色弱）：配置上偏多能源链 + 农产品天气品种，回避/对冲需求端弱势板块</li>
+        </ul>
+      </div>
+      <div class="quad risk">
+        <div class="q-title">风控提醒</div>
+        <ul>
+          <li>地缘缓和能源回落 → 指数涨幅回吐；宏观情绪转弱拖累商品整体；天气炒作降温 → 农产品补跌</li>
+          <li>指数普涨由少数板块驱动，追指数 ETF/组合需注意集中度风险；政策不及预期时预期交易回吐</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="divider">数据来源：庞博大宗商品共享知识库（最近一周 97 份商品研究报告摘要）· 经本地投研知识库方法论（库存·基差·利润四象限 / 期限结构 / 行情反转三信号 / 持仓拥挤度 / 期权风控体系）加工 · 内容仅供参考，不构成投资建议 · 生成于 2026-08-26</div>
+  </div>
+
+</div>
+</body>
+</html>
