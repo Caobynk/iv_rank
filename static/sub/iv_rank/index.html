@@ -230,7 +230,7 @@
   }
   .scatter-chart {
     width: 100%;
-    height: 340px;
+    height: 460px;
   }
 
   /* ===== Legend ===== */
@@ -844,7 +844,8 @@ function renderScatter(data) {
     window.addEventListener('resize', rh);
   }
 
-  const pts = data.map(d => ({
+  // 暂时从散点图移除动力煤(CZC_ZCIV.WI)
+  const pts = data.filter(d => d.code !== 'CZC_ZCIV.WI').map(d => ({
     value: [d.current, d.percentile],
     name: d.short_name || d.name,
     code: d.code,
@@ -877,25 +878,25 @@ function renderScatter(data) {
       name: '当前IV',
       nameLocation: 'middle',
       nameGap: 30,
-      nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+      nameTextStyle: { color: '#334155', fontSize: 11 },
       scale: true,
       axisLine: { lineStyle: { color: '#e2e8f0' } },
       axisTick: { show: false },
       splitLine: { lineStyle: { color: '#f1f5f9' } },
-      axisLabel: { color: '#94a3b8', fontSize: 11, formatter: '{value}%' }
+      axisLabel: { color: '#334155', fontSize: 11, formatter: '{value}%' }
     },
     yAxis: {
       type: 'value',
       name: '分位数',
       nameLocation: 'middle',
       nameGap: 38,
-      nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+      nameTextStyle: { color: '#334155', fontSize: 11 },
       min: 0,
       max: 100,
       axisLine: { show: false },
       axisTick: { show: false },
       splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
-      axisLabel: { color: '#94a3b8', fontSize: 11, formatter: '{value}%' }
+      axisLabel: { color: '#334155', fontSize: 11, formatter: '{value}%' }
     },
     visualMap: {
       show: false,
@@ -908,6 +909,20 @@ function renderScatter(data) {
       type: 'scatter',
       data: pts,
       symbolSize: 13,
+      label: {
+        show: true,
+        formatter: function(p) {
+          let c = p.data.code || '';
+          c = c.replace(/\.WI$/, '');
+          c = c.split('_').slice(1).join('_');
+          return c;
+        },
+        position: 'top',
+        color: '#1e293b',
+        fontSize: 9,
+        fontWeight: 500
+      },
+      labelLayout: { hideOverlap: true },
       itemStyle: {
         opacity: 0.88,
         borderColor: '#fff',
