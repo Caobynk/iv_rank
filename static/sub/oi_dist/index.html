@@ -116,7 +116,7 @@
     </div>
     <div class="field">
       <label>交易日</label>
-      <input type="date" id="date" value="2026-09-03" disabled>
+      <input type="date" id="date" value="2026-09-04" disabled>
     </div>
     <div class="btns">
       <button class="btn-primary" id="btn-query">查询</button>
@@ -173,7 +173,7 @@ const fmt = n => (n == null ? '-' : Number(n).toLocaleString('zh-CN'));
 
 // ---------- 初始化 ----------
 async function init() {
-  document.getElementById('date').value = "2026-09-03";
+  document.getElementById('date').value = "2026-09-04";
   try {
     const res = await fetch('varieties.json');
     const data = await res.json();
