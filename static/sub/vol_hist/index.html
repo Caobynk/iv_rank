@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html lang="zh-CN" data-page-node-id="XpWubvvhX0lR4E0jLQv8di">
+<head data-page-node-id="AP2kSEeQUvx7z4KAm4jzEV">
+<meta charset="UTF-8" data-page-node-id="BFPtj8GfhsRtdzUBkZGlqb">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="XQaxrGL4MxZqSkSNppCwsD">
 <title>国内期货历史波动率估计</title>
 <script src="./echarts.min.js"></script>
 <script>if (typeof echarts === 'undefined') { document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"><\/script>'); }</script>
@@ -49,61 +49,61 @@
   @media (max-width: 560px) { .cards { grid-template-columns: repeat(2, 1fr); } }
 </style>
 </head>
-<body>
-<div class="wrap">
-  <header>
-    <h1>国内期货历史波动率估计</h1>
-    <p>价格指数为各月份合约按持仓量(OI)加权平均，规避主连换月跳空导致的波动率失真 · 覆盖上期/大商/郑商/能源/中金/广期所全品种</p>
+<body data-page-node-id="snxmwenDZoRRCseuLM2zjL">
+<div class="wrap" data-page-node-id="VOwYUeuaPkTewPqTwoP5f0">
+  <header data-page-node-id="8flxGizMTY9icZHjZspYLQ">
+    <h1 data-page-node-id="LBi01XSHkZ3b8cpGkKNYOt">国内期货历史波动率估计</h1>
+    <p data-page-node-id="0ZzEMolLIyTL8U7wq9zYPj">价格指数为各月份合约按持仓量(OI)加权平均，规避主连换月跳空导致的波动率失真 · 覆盖上期/大商/郑商/能源/中金/广期所全品种</p>
   </header>
 
-  <div class="panel">
-    <div class="controls">
-      <div class="field">
-        <label>品种</label>
-        <select id="symbol" style="min-width:200px;"></select>
+  <div class="panel" data-page-node-id="HIjO5U3wgNObzVH9SQ5DNl">
+    <div class="controls" data-page-node-id="GZ8jRbD1HpRJF95026Fokx">
+      <div class="field" data-page-node-id="Rb6JHkPJx4nrQzO1iX1O1i">
+        <label data-page-node-id="lcDEs5yDnZviBekzBFrRPa">品种</label>
+        <select id="symbol" style="min-width:200px;" data-page-node-id="snqcSkFx2T8XMBQ7xKwMyt"></select>
       </div>
-      <div class="field">
-        <label>波动率估计方法</label>
-        <select id="method">
-          <option value="close_to_close">历史波动率(收盘价)</option>
-          <option value="ewma">EWMA(风险矩阵 λ=0.94)</option>
-          <option value="parkinson">Parkinson(高低价)</option>
-          <option value="garman_klass">Garman-Klass(开高低收)</option>
+      <div class="field" data-page-node-id="hcNGIywnT0ZxCGeYI9By3A">
+        <label data-page-node-id="hWfI0OnyU0YOlxNTKlxv36">波动率估计方法</label>
+        <select id="method" data-page-node-id="INDVGsGXMUxC1GBud3DgCK">
+          <option value="close_to_close" data-page-node-id="5MBkX6VKeO0F9k5nIv9Y1b">历史波动率(收盘价)</option>
+          <option value="ewma" data-page-node-id="Fw4vpbpw5POlMoCuqqwtaL">EWMA(风险矩阵 λ=0.94)</option>
+          <option value="parkinson" data-page-node-id="PKkCfnfI2Ql0aXFHaowtpi">Parkinson(高低价)</option>
+          <option value="garman_klass" data-page-node-id="YQKfhCRVwCBhr8qACiXdn2">Garman-Klass(开高低收)</option>
         </select>
       </div>
-      <div class="field">
-        <label>滚动窗口(交易日)</label>
-        <select id="window" disabled>
-          <option value="20">20</option>
-          <option value="30" selected>30</option>
-          <option value="60">60</option>
-          <option value="90">90</option>
-          <option value="120">120</option>
+      <div class="field" data-page-node-id="lGKKpzp0WfYDo9mCc1ZWj2">
+        <label data-page-node-id="zrBxa3mAfj2yqrX59w6NWa">滚动窗口(交易日)</label>
+        <select id="window" disabled data-page-node-id="qJRvaTUgxMjo3SGUrvG7Ii">
+          <option value="20" data-page-node-id="s0UOql4oyslzll8FPwKjaQ">20</option>
+          <option value="30" selected data-page-node-id="9U2tlpD4lgWtklNmtxBtRn">30</option>
+          <option value="60" data-page-node-id="dIlrKazKo43t90KuFug9El">60</option>
+          <option value="90" data-page-node-id="5m3GTkeGSnT4ncwDZJYXhb">90</option>
+          <option value="120" data-page-node-id="NqQvaWimXnrNjEeA39zzMs">120</option>
         </select>
       </div>
-      <div class="field">
-        <label>起始年份</label>
-        <select id="startYear" disabled></select>
+      <div class="field" data-page-node-id="B45jCdDWkDsWLZ6qRbjuF9">
+        <label data-page-node-id="198jqzBPnYosCbvS4yjGjk">起始年份</label>
+        <select id="startYear" disabled data-page-node-id="Hay2GgMEBbtESPbIp6MRz3"></select>
       </div>
-      <button id="refresh" class="primary" disabled>刷新数据（静态版）</button>
-      <div class="spacer"></div>
-      <div class="field">
-        <label>当前方法说明</label>
-        <div id="methodDesc" style="font-size:12px;color:var(--muted);padding:8px 0;max-width:320px;"></div>
+      <button id="refresh" class="primary" disabled data-page-node-id="12RAF6SoERxFom9G1r5GUs">刷新数据（静态版）</button>
+      <div class="spacer" data-page-node-id="SU9wQgxGJcMH5qRto1VA4k"></div>
+      <div class="field" data-page-node-id="BFwcG1YcDeAsMQMk63UeBx">
+        <label data-page-node-id="craHNWRVg9ert3tBLvzsce">当前方法说明</label>
+        <div id="methodDesc" style="font-size:12px;color:var(--muted);padding:8px 0;max-width:320px;" data-page-node-id="oGY1xBenSYbn0dcDWBC2e3"></div>
       </div>
     </div>
-    <div class="status" id="status">加载中…</div>
-    <div class="cards" id="cards"></div>
-    <div id="chart"></div>
-    <div class="status" id="distStatus" style="padding-top:0;"></div>
-    <div id="distChart"></div>
+    <div class="status" id="status" data-page-node-id="VarSrXgcBQ10Z4zrMlyfvo">加载中…</div>
+    <div class="cards" id="cards" data-page-node-id="nmn7AhlVyfwmMZBO1elF0B"></div>
+    <div id="chart" data-page-node-id="IBRxSWzek8X0EvDKbHGAif"></div>
+    <div class="status" id="distStatus" style="padding-top:0;" data-page-node-id="YEnQNgzhqms8ZMiyPF4wAZ"></div>
+    <div id="distChart" data-page-node-id="drGRYlXW1GQJUSYtzLONy1"></div>
   </div>
 
-  <footer>
-    <div>· 价格指数为同品种各月份合约收盘价按持仓量加权平均，天然随换月平滑过渡，波动率估计更稳健。</div>
-    <div>· 年化因子 252 个交易日；EWMA 不使用固定窗口（λ=0.94 控制衰减）。</div>
-    <div>· 数据源：akshare 新浪期货日线（含各合约持仓量）；可下拉选择起始年份（默认近3年）。</div>
-    <div>· 服务使用动态端口，关闭本网页将自动停止后台服务并释放端口；浏览器异常关闭时也会在约 90 秒内自动释放。</div>
+  <footer data-page-node-id="GbThzb8jRLAHorzFxBtMCB">
+    <div data-page-node-id="ucd2ZG8gL6jS0PiKlp2nIC">· 价格指数为同品种各月份合约收盘价按持仓量加权平均，天然随换月平滑过渡，波动率估计更稳健。</div>
+    <div data-page-node-id="7TzJ2hxcetSr4tfEHAelHp">· 年化因子 252 个交易日；EWMA 不使用固定窗口（λ=0.94 控制衰减）。</div>
+    <div data-page-node-id="XiX5F5Vjl8vhDgqFw86mDn">· 数据源：akshare 新浪期货日线（含各合约持仓量）；可下拉选择起始年份（默认近3年）。</div>
+    <div data-page-node-id="5V26AVXXedDFMeb1gEoGph">· 服务使用动态端口，关闭本网页将自动停止后台服务并释放端口；浏览器异常关闭时也会在约 90 秒内自动释放。</div>
   </footer>
 </div>
 
