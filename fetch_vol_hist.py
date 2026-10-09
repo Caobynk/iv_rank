@@ -19,17 +19,36 @@ VOLHIST_DIR = r'D:\WorkBuddy\商品期货历史波动率估计'
 if VOLHIST_DIR not in sys.path:
     sys.path.insert(0, VOLHIST_DIR)
 
-from varieties import get_variety                # noqa: E402
-from corr_source import compute_index_from_corr  # noqa: E402
+from varieties import get_variety, get_varieties_grouped  # noqa: E402
+from corr_source import compute_index_from_corr          # noqa: E402
+
+# vol_hist 面板覆盖范围：5 大商品交易所（不含 CFFEX 金融期货）
+COMMODITY_EXCHANGES = {'DCE', 'CZCE', 'SHFE', 'INE', 'GFEX'}
+
+
+def _whitelist_codes():
+    """白名单品种代码（5 大商品交易所）。
+
+    改用白名单而非仅遍历已有缓存：新品种（如 INE 的原油/20号胶/国际铜）
+    与历史上缺失的品种（如多数 CZCE/DCE）才能被正确生成，避免"列表永远不全"。
+    """
+    codes = set()
+    for g in get_varieties_grouped():
+        if g['exchange'] in COMMODITY_EXCHANGES:
+            for v in g['items']:
+                codes.add(v['code'])
+    return codes
 
 
 def main():
     cache_dir = os.path.join(VOLHIST_DIR, '.cache')
-    codes = sorted(
+    cache_codes = {
         f.replace('.csv', '') for f in os.listdir(cache_dir)
         if f.endswith('.csv') and not re.search(r'_\d{4}\.csv$', f)
-    )
-    ok, skip = 0, 0
+    }
+    # 并集：已有缓存（刷新）+ 白名单（补全缺失品种）
+    codes = sorted(cache_codes | _whitelist_codes())
+    ok, skip, added = 0, 0, 0
     for c in codes:
         try:
             variety = get_variety(c)
@@ -40,17 +59,25 @@ def main():
             # Excel 收盘价序列（date 索引，仅 close 列）
             idx = compute_index_from_corr(variety)
             if idx is None:
-                print(f"[vol_hist] - {c} Excel 无数据，保留旧缓存", flush=True)
+                if c in cache_codes:
+                    print(f"[vol_hist] - {c} ({variety['name']}) Excel 无数据，保留旧缓存", flush=True)
+                else:
+                    print(f"[vol_hist] - {c} ({variety['name']}) Excel 无数据，跳过（无旧缓存）", flush=True)
                 skip += 1
                 continue
             idx[['close']].to_csv(os.path.join(cache_dir, f'{c}.csv'))
             end = idx.index[-1].date()
-            print(f"[vol_hist] + {c} ({variety['name']}): {len(idx)} 点, end {end}", flush=True)
+            existed = c in cache_codes
+            if not existed:
+                added += 1
+                print(f"[vol_hist] ++ {c} ({variety['name']}): {len(idx)} 点, end {end}", flush=True)
+            else:
+                print(f"[vol_hist] + {c} ({variety['name']}): {len(idx)} 点, end {end}", flush=True)
             ok += 1
         except Exception as e:
             print(f"[vol_hist] {c} 失败: {type(e).__name__}: {str(e)[:80]}", flush=True)
             skip += 1
-    print(f"[vol_hist] 完成: 更新 {ok} / 跳过 {skip} / 共 {len(codes)}")
+    print(f"[vol_hist] 完成: 更新 {ok} / 新增 {added} / 跳过 {skip} / 共 {len(codes)}")
     return 0
 
 

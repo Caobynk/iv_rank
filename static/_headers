@@ -1,0 +1,10 @@
+# 静态资源长缓存：echarts 等 JS 永不变更，避免每次访问重复下载 1MB（根因：原先 max-age=0 强制重验）
+/sub/*/echarts.min.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/sub/*/*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+# 数据 JSON 按更新频率适中缓存
+/sub/*/*.json
+  Cache-Control: public, max-age=86400

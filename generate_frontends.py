@@ -89,6 +89,8 @@ def gen_vol_hist():
     src = read(r'D:\WorkBuddy\商品期货历史波动率估计\templates\index.html')
     h = src
     h = h.replace('src="/static/echarts.min.js"', 'src="./echarts.min.js"')
+    # 删除 jsdelivr 兜底：国内被墙，反而使 echarts 永久未定义 -> 数据不渲染（根因修复，防回归）
+    h = re.sub(r"<script>if \(typeof echarts === 'undefined'\) \{[^}]*jsdelivr\.net[^}]*\}\s*</script>\n?", '', h)
     # fetch /api/varieties -> varieties.json
     h = h.replace("return fetch('/api/varieties').then(r => r.json()).then(groups => {",
                   "return fetch('varieties.json').then(r => r.json()).then(groups => {")
