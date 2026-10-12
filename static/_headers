@@ -5,6 +5,5 @@
 /sub/*/*.js
   Cache-Control: public, max-age=31536000, immutable
 
-# 数据 JSON 按更新频率适中缓存
-/sub/*/*.json
-  Cache-Control: public, max-age=86400
+# 数据 JSON 每日更新 -> 不做长缓存：此前误设 max-age=86400，导致推送成功后页面最长 24h 仍显示旧数据。
+# 不设规则即沿用默认 max-age=0 + must-revalidate（每次访问重验证，未变更返回 304）。
