@@ -9,7 +9,7 @@ REM   1. ensure venv (create + install deps on first run)
 REM   2. fetch latest data from exchanges (update_data.py, ~10-15 min)
 REM   3. rebuild static site from fresh data (build_site.py, ~2 min)
 REM   4. git commit (only when static/ actually changed)
-REM   5. push: hardened git push, then proxy, then GitHub API channel
+REM   5. push: .workbuddy\tools\push_deploy.py (probe, direct, proxy, API)
 REM  Site: https://iv-rank.caobynk.workers.dev/
 REM ============================================================
 
@@ -88,65 +88,21 @@ echo.
 echo ==========================================================
 echo  [5/5] Pushing to GitHub...
 echo ==========================================================
-REM Hardening notes - what each piece protects against:
-REM   for /f token read  : strips the trailing CR that set /p can leave in the token
-REM   x-access-token:    : the plain https://TOKEN@host form can hang, use this form
-REM   protocol.version=0 : skips the protocol v2 negotiation round-trip; when the
-REM                        network cuts it git dies with
-REM                        "expected flush after ref listing"
-REM   schannel + revoke off + connectTimeout + lowSpeed guards: keep TLS working
-REM                        and stop a stalled transfer from hanging forever
-REM   API channel last   : publishes the same content when the git protocol is cut
-set TOKEN=
-if exist deploy_token.txt (
-  for /f "usebackq delims=" %%a in ("deploy_token.txt") do set "TOKEN=%%a"
-) else (
-  if defined GH_TOKEN set "TOKEN=%GH_TOKEN%"
+REM The push logic now lives in .workbuddy\tools\push_deploy.py, because cmd
+REM has no reliable command timeout and this machine's git smart-protocol can
+REM HANG after "expected flush after ref listing" - that froze this batch at
+REM step 5 with no error output. The script runs, in order and each with a
+REM hard timeout: skip-if-nothing-to-push, git-protocol probe, direct push,
+REM proxy push, GitHub API channel. So this batch can no longer hang.
+venv\Scripts\python.exe -u push_deploy.py
+if errorlevel 1 (
+  echo.
+  echo [ERROR] push failed - site NOT updated.
+  echo  Read the channel results printed above to see which step failed.
+  pause
+  exit /b 1
 )
-set GIT_TERMINAL_PROMPT=0
-set GITFLAGS=-c protocol.version=0 -c http.sslBackend=schannel -c http.schannelCheckRevoke=false -c http.connectTimeout=15 -c http.postBuffer=524288000 -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=45
-
-REM informational probe: is the API fallback channel usable right now?
-set API200=0
-if not "%TOKEN%"=="" (
-  for /f %%c in ('curl -s -o nul -w "%%{http_code}" --ssl-no-revoke --max-time 20 -H "Authorization: Bearer %TOKEN%" https://api.github.com/repos/Caobynk/iv_rank') do set API200=%%c
-)
-echo  Probe - GitHub API reachable: %API200%
-
-echo Pushing to GitHub via system network...
-if not "%TOKEN%"=="" (
-  git %GITFLAGS% -c "url.https://x-access-token:%TOKEN%@github.com/.insteadOf=https://github.com/" push origin main
-) else (
-  git %GITFLAGS% push origin main
-)
-if not errorlevel 1 goto PUSH_OK
-
-echo Direct push failed - trying proxy fallback...
-set PROXY=
-if exist deploy_proxy.txt (
-  for /f "usebackq delims=" %%a in ("deploy_proxy.txt") do set "PROXY=%%a"
-) else (
-  if defined GH_PROXY set "PROXY=%GH_PROXY%"
-)
-if not "%PROXY%"=="" (
-  echo  Using proxy: %PROXY%
-  if not "%TOKEN%"=="" (
-    git %GITFLAGS% -c http.proxy=%PROXY% -c "url.https://x-access-token:%TOKEN%@github.com/.insteadOf=https://github.com/" push origin main
-  ) else (
-    git %GITFLAGS% -c http.proxy=%PROXY% push origin main
-  )
-  if not errorlevel 1 goto PUSH_OK
-) else (
-  echo  No proxy configured - skipped.
-)
-
-echo Git push failed - falling back to the GitHub API channel...
-venv\Scripts\python.exe -u .workbuddy\tools\_api_pub_all.py
-if not errorlevel 1 goto PUSH_OK
-
-echo [ERROR] push failed - site NOT updated. Check deploy_token.txt / GH_TOKEN or network.
-pause
-exit /b 1
+goto PUSH_OK
 
 :PUSH_OK
 echo.
